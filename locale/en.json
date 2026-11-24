@@ -19,8 +19,8 @@
     "dirty": "Unsaved changes",
     "global": {
       "section": "General",
-      "enabled": "Enable push",
-      "enabledHint": "When off, no notification is sent and chat commands are ignored",
+      "enabled": "Automatic pushes",
+      "enabledHint": "Applies to automatic messages only: session events, approvals and questions. push_message keeps working regardless.",
       "titlePrefix": "Title prefix",
       "titlePrefixHint": "Prepended to every notification title, e.g. [DSH]; leave empty for none",
       "mainAgentOnly": "Main agent only",

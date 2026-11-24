@@ -68,6 +68,7 @@ export async function apply(rawCtx: unknown, patch: PluginConfig): Promise<void>
     logger,
     text: () => chatText(config.messages.locale),
     hintEnabled: () => config.messages.hint,
+    autoEnabled: () => config.enabled,
   })
   const notifier = new Notifier({
     registry,

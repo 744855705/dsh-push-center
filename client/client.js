@@ -3892,8 +3892,8 @@ var ui$1 = {
 	"dirty": "有未保存的修改",
 	"global": {
 		"section": "通用",
-		"enabled": "启用推送",
-		"enabledHint": "关闭后不再发送任何通知，也不响应聊天指令",
+		"enabled": "启用自动推送",
+		"enabledHint": "只影响自动消息：会话事件、审批与提问提示。push_message 主动推送不受影响，始终可用。",
 		"titlePrefix": "标题前缀",
 		"titlePrefixHint": "追加在每条通知标题前，例如 [DSH]；留空不加",
 		"mainAgentOnly": "仅主智能体",
@@ -4054,8 +4054,8 @@ var ui = {
 	"dirty": "Unsaved changes",
 	"global": {
 		"section": "General",
-		"enabled": "Enable push",
-		"enabledHint": "When off, no notification is sent and chat commands are ignored",
+		"enabled": "Automatic pushes",
+		"enabledHint": "Applies to automatic messages only: session events, approvals and questions. push_message keeps working regardless.",
 		"titlePrefix": "Title prefix",
 		"titlePrefixHint": "Prepended to every notification title, e.g. [DSH]; leave empty for none",
 		"mainAgentOnly": "Main agent only",

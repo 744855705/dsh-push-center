@@ -45,6 +45,13 @@ export interface RouterDeps {
   readonly text: () => ChatText
   /** Whether notifications append the reply hint. */
   readonly hintEnabled: () => boolean
+  /**
+   * Whether automatic messages may be sent at all.
+   *
+   * The switch covers everything automatic — event notifications and the
+   * approval/question prompts — while `push_message` stays available regardless.
+   */
+  readonly autoEnabled?: () => boolean
 }
 
 /** Reply vocabulary for approvals (case-insensitive). */
@@ -262,6 +269,10 @@ export class Router {
   }
 
   async #pushToInteractive(message: OutboundMessage): Promise<void> {
+    // The switch governs automatic messages, so a disabled profile sends no prompt.
+    // The entry stays pending: the DSH window can still answer it, and a late
+    // reply must not be mistaken for a new conversation.
+    if (this.#deps.autoEnabled?.() === false) return
     // One prompt, one recipient: the automatic channel when it can take a reply,
     // otherwise the default, otherwise the first channel that can.
     await this.#deps.registry.sendPrompt(message)

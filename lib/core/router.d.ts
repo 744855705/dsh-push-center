@@ -17,6 +17,13 @@ export interface RouterDeps {
     readonly text: () => ChatText;
     /** Whether notifications append the reply hint. */
     readonly hintEnabled: () => boolean;
+    /**
+     * Whether automatic messages may be sent at all.
+     *
+     * The switch covers everything automatic — event notifications and the
+     * approval/question prompts — while `push_message` stays available regardless.
+     */
+    readonly autoEnabled?: () => boolean;
 }
 /** Reply vocabulary for approvals (case-insensitive). */
 export declare const APPROVE_WORDS: ReadonlySet<string>;

@@ -941,6 +941,49 @@ test('card buttons cap at six and keys map back to the reply vocabulary', () => 
   assert.equal(cardKey({ id: 'x', label: 'x', intent: 'accept' }, 0), 'approve')
 })
 
+/** A router with one fake channel; the automatic switch is the input under test. */
+function buildRouter(autoEnabled: () => boolean): { registry: ChannelRegistry; channel: FakeChannel; router: Router } {
+  const registry = new ChannelRegistry({ defaultChannelId: () => 'fake' })
+  const channel = new FakeChannel('fake', { targets: [{ id: 't', lastSeenAt: Date.now() }] })
+  registry.add(channel)
+  const router = new Router({
+    registry,
+    bindings: new Bindings(),
+    waiters: new Waiters(),
+    host: {
+      prompt: async () => ({ ok: true }),
+      listSessions: async () => [],
+      listWorkspaces: async () => [],
+      createSession: async () => ({ ok: false }),
+    },
+    clock: { now: () => Date.now(), sleep: async () => {} },
+    logger: log,
+    text: () => chatText('zh'),
+    hintEnabled: () => true,
+    autoEnabled,
+  })
+  return { registry, channel, router }
+}
+
+test('the automatic switch stops prompts but never the push tool', async () => {
+  const build = buildRouter;
+
+  const off = build(() => false)
+  const pending = off.router.onApproval({ sessionId: 's1', toolName: 'bash' })
+  await new Promise((resolve) => setTimeout(resolve, 20))
+  assert.equal(off.channel.sent.length, 0, 'a disabled profile sends no approval prompt')
+  assert.equal(off.router.pendingCount, 1, 'the prompt still waits for the DSH window')
+  off.router.dispose()
+  assert.equal(await pending, null)
+
+  const on = build(() => true)
+  const live = on.router.onApproval({ sessionId: 's2', toolName: 'bash' })
+  await new Promise((resolve) => setTimeout(resolve, 20))
+  assert.equal(on.channel.sent.length, 1, 'an enabled profile does send it')
+  on.router.dispose()
+  assert.equal(await live, null)
+})
+
 test('a typed Y still approves when cards are in use', async () => {
   const registry = new ChannelRegistry({ defaultChannelId: () => 'fake' })
   const channel = new FakeChannel('fake', { targets: [{ id: 't', lastSeenAt: Date.now() }] })
