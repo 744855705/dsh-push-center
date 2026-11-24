@@ -108,6 +108,8 @@ export function SettingsPage(props: SettingsPageProps): JSX.Element {
   const [qrImage, setQrImage] = useState<string | null>(null)
   const [aibotQr, setAibotQr] = useState<string | null>(null)
   const [notes, setNotes] = useState<Record<string, string>>({})
+  // Display-only: the ledger records every send regardless of this switch.
+  const [showDeliveries, setShowDeliveries] = useState(false)
 
   const draftRef = useRef<Config | null>(null)
   const configRef = useRef<Config | null>(null)
@@ -318,15 +320,6 @@ export function SettingsPage(props: SettingsPageProps): JSX.Element {
         </label>
         <Field label={t('push.replyTimeout')} hint={t('push.replyTimeoutHint')} value={String(draft.push.replyTimeoutMs)} onChange={(value) => update({ ...draft, push: { ...draft.push, replyTimeoutMs: Number(value) || 120000 } })} />
       </Section>
-      <Section title={t('deliveries.title')}>
-        <div style={S.hint}>{t('deliveries.hint')}</div>
-        {(status?.deliveries ?? []).slice(0, 20).map((row, index) => (
-          <div key={String(row.at) + '-' + String(index)} style={S.hint}>
-            {new Date(row.at).toLocaleTimeString() + ' · ' + row.channel + (row.target.length === 0 ? '' : '/' + row.target) + ' · ' + (row.ok ? t('deliveries.ok') : t('deliveries.failed')) + (row.code === undefined ? '' : ' (' + row.code + ')')}
-          </div>
-        ))}
-        {(status?.deliveries?.length ?? 0) === 0 ? <div style={S.hint}>{t('deliveries.empty')}</div> : null}
-      </Section>
       <Section title={t('events.section')}>
         <div style={S.hint}>{t('events.hint')}</div>
         {EVENT_KEYS.map((key) => (
@@ -343,6 +336,20 @@ export function SettingsPage(props: SettingsPageProps): JSX.Element {
           </select>
         </label>
         <Toggle label={t('messages.hint')} hint={t('messages.hintHint')} checked={draft.messages.hint} onChange={(value) => update({ ...draft, messages: { ...draft.messages, hint: value } })} />
+      </Section>
+      <Section title={t('deliveries.title')}>
+        <Toggle label={t('deliveries.show')} hint={t('deliveries.showHint')} checked={showDeliveries} onChange={setShowDeliveries} />
+        {showDeliveries ? (
+          <>
+            <div style={S.hint}>{t('deliveries.hint')}</div>
+            {(status?.deliveries ?? []).slice(0, 20).map((row, index) => (
+              <div key={String(row.at) + '-' + String(index)} style={S.hint}>
+                {new Date(row.at).toLocaleTimeString() + ' · ' + row.channel + (row.target.length === 0 ? '' : '/' + row.target) + ' · ' + (row.ok ? t('deliveries.ok') : t('deliveries.failed')) + (row.code === undefined ? '' : ' (' + row.code + ')')}
+              </div>
+            ))}
+            {(status?.deliveries?.length ?? 0) === 0 ? <div style={S.hint}>{t('deliveries.empty')}</div> : null}
+          </>
+        ) : null}
       </Section>
     </>
   )

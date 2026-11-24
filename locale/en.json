@@ -139,7 +139,9 @@
       "hint": "One row per outbound attempt: time · channel/target · result. This is how you tell whether a message actually left.",
       "ok": "ok",
       "failed": "failed",
-      "empty": "No deliveries recorded yet."
+      "empty": "No deliveries recorded yet.",
+      "show": "Show delivery log",
+      "showHint": "Display only; deliveries are always recorded"
     },
     "system": {
       "title": "System notifications",

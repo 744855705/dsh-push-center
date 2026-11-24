@@ -3202,6 +3202,7 @@ function SettingsPage(props) {
 	const [qrImage, setQrImage] = (0, react.useState)(null);
 	const [aibotQr, setAibotQr] = (0, react.useState)(null);
 	const [notes, setNotes] = (0, react.useState)({});
+	const [showDeliveries, setShowDeliveries] = (0, react.useState)(false);
 	const draftRef = (0, react.useRef)(null);
 	const configRef = (0, react.useRef)(null);
 	const revisionRef = (0, react.useRef)(-1);
@@ -3537,23 +3538,6 @@ function SettingsPage(props) {
 			]
 		}),
 		/* @__PURE__ */ (0, react_jsx_runtime.jsxs)(Section, {
-			title: t("deliveries.title"),
-			children: [
-				/* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", {
-					style: S.hint,
-					children: t("deliveries.hint")
-				}),
-				(status?.deliveries ?? []).slice(0, 20).map((row, index) => /* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", {
-					style: S.hint,
-					children: new Date(row.at).toLocaleTimeString() + " · " + row.channel + (row.target.length === 0 ? "" : "/" + row.target) + " · " + (row.ok ? t("deliveries.ok") : t("deliveries.failed")) + (row.code === void 0 ? "" : " (" + row.code + ")")
-				}, String(row.at) + "-" + String(index))),
-				(status?.deliveries?.length ?? 0) === 0 ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", {
-					style: S.hint,
-					children: t("deliveries.empty")
-				}) : null
-			]
-		}),
-		/* @__PURE__ */ (0, react_jsx_runtime.jsxs)(Section, {
 			title: t("events.section"),
 			children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", {
 				style: S.hint,
@@ -3614,6 +3598,28 @@ function SettingsPage(props) {
 					}
 				})
 			})]
+		}),
+		/* @__PURE__ */ (0, react_jsx_runtime.jsxs)(Section, {
+			title: t("deliveries.title"),
+			children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)(Toggle, {
+				label: t("deliveries.show"),
+				hint: t("deliveries.showHint"),
+				checked: showDeliveries,
+				onChange: setShowDeliveries
+			}), showDeliveries ? /* @__PURE__ */ (0, react_jsx_runtime.jsxs)(react_jsx_runtime.Fragment, { children: [
+				/* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", {
+					style: S.hint,
+					children: t("deliveries.hint")
+				}),
+				(status?.deliveries ?? []).slice(0, 20).map((row, index) => /* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", {
+					style: S.hint,
+					children: new Date(row.at).toLocaleTimeString() + " · " + row.channel + (row.target.length === 0 ? "" : "/" + row.target) + " · " + (row.ok ? t("deliveries.ok") : t("deliveries.failed")) + (row.code === void 0 ? "" : " (" + row.code + ")")
+				}, String(row.at) + "-" + String(index))),
+				(status?.deliveries?.length ?? 0) === 0 ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", {
+					style: S.hint,
+					children: t("deliveries.empty")
+				}) : null
+			] }) : null]
 		})
 	] });
 	const wechatSection = /* @__PURE__ */ (0, react_jsx_runtime.jsxs)(Section, {
@@ -4024,7 +4030,9 @@ var ui$1 = {
 		"hint": "每条出站尝试一行：时间 · 渠道/目标 · 结果。用它能确认消息到底有没有发出去。",
 		"ok": "成功",
 		"failed": "失败",
-		"empty": "还没有投递记录。"
+		"empty": "还没有投递记录。",
+		"show": "显示投递记录",
+		"showHint": "只影响本页显示；投递记录始终在后台保留"
 	},
 	"system": {
 		"title": "系统通知",
@@ -4186,7 +4194,9 @@ var ui = {
 		"hint": "One row per outbound attempt: time · channel/target · result. This is how you tell whether a message actually left.",
 		"ok": "ok",
 		"failed": "failed",
-		"empty": "No deliveries recorded yet."
+		"empty": "No deliveries recorded yet.",
+		"show": "Show delivery log",
+		"showHint": "Display only; deliveries are always recorded"
 	},
 	"system": {
 		"title": "System notifications",
