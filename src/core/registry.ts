@@ -9,6 +9,13 @@ export interface RoutingPolicy {
   defaultChannelId(): string
   /** Configured automatic-message channel id, or '' to follow the default. */
   autoChannelId?(): string
+  /**
+   * The automatic-messages switch.
+   *
+   * Judged here, once: every automatic message (event notification or prompt)
+   * passes through this gate, so no caller has to remember to check it.
+   */
+  autoEnabled?(): boolean
 }
 
 /** Options for one registry send. */
@@ -124,6 +131,7 @@ export class ChannelRegistry {
    * @returns what was delivered and why nothing was.
    */
   async sendAutomatic(message: OutboundMessage): Promise<SendReport> {
+    if (this.#policy.autoEnabled?.() === false) return { delivered: [], skipped: [{ channel: 'auto', reason: 'disabled' }] }
     return this.#sendResolved(message, this.#resolve(this.#policy.autoChannelId?.() ?? '', false))
   }
 
@@ -133,6 +141,7 @@ export class ChannelRegistry {
    * @returns what was delivered and why nothing was.
    */
   async sendPrompt(message: OutboundMessage): Promise<SendReport> {
+    if (this.#policy.autoEnabled?.() === false) return { delivered: [], skipped: [{ channel: 'auto', reason: 'disabled' }] }
     return this.#sendResolved(message, this.#resolve(this.#policy.autoChannelId?.() ?? '', true))
   }
 

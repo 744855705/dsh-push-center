@@ -943,7 +943,7 @@ test('card buttons cap at six and keys map back to the reply vocabulary', () => 
 
 /** A router with one fake channel; the automatic switch is the input under test. */
 function buildRouter(autoEnabled: () => boolean): { registry: ChannelRegistry; channel: FakeChannel; router: Router } {
-  const registry = new ChannelRegistry({ defaultChannelId: () => 'fake' })
+  const registry = new ChannelRegistry({ defaultChannelId: () => 'fake', autoEnabled })
   const channel = new FakeChannel('fake', { targets: [{ id: 't', lastSeenAt: Date.now() }] })
   registry.add(channel)
   const router = new Router({
@@ -960,7 +960,6 @@ function buildRouter(autoEnabled: () => boolean): { registry: ChannelRegistry; c
     logger: log,
     text: () => chatText('zh'),
     hintEnabled: () => true,
-    autoEnabled,
   })
   return { registry, channel, router }
 }

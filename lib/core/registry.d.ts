@@ -6,6 +6,13 @@ export interface RoutingPolicy {
     defaultChannelId(): string;
     /** Configured automatic-message channel id, or '' to follow the default. */
     autoChannelId?(): string;
+    /**
+     * The automatic-messages switch.
+     *
+     * Judged here, once: every automatic message (event notification or prompt)
+     * passes through this gate, so no caller has to remember to check it.
+     */
+    autoEnabled?(): boolean;
 }
 /** Options for one registry send. */
 export interface RegistrySendOptions {

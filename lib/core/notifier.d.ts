@@ -20,8 +20,6 @@ export interface NotifierPolicy {
     events(): Readonly<Record<NotifyEventType, boolean>>;
     titlePrefix(): string;
     hint(): boolean;
-    /** Channels event notifications go to; empty means the default channel. */
-    channels(): readonly string[];
     text(): ChatText;
     /** System notifications: an independent switch set, never part of the chat fan-out. */
     system(): SystemRouting;

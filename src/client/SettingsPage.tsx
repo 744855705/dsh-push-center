@@ -284,12 +284,6 @@ export function SettingsPage(props: SettingsPageProps): JSX.Element {
   }
 
   /** Header: title plus the live state of that channel. */
-  const header = (title: string, state: string | undefined): JSX.Element => (
-    <div style={S.header}>
-      <h3 style={S.heading}>{title}</h3>
-      <span style={S.state}>{stateLabel(state)}</span>
-    </div>
-  )
 
   const knownChats = (list: readonly { id: string }[] | undefined): string =>
     (list ?? []).map((target) => target.id).join(', ') || t('channel.noTargetHint')
@@ -300,14 +294,12 @@ export function SettingsPage(props: SettingsPageProps): JSX.Element {
 
   const generalSection = (
     <>
-      <section style={S.section}>
-        <div style={S.header}><h3 style={S.heading}>{t('global.section')}</h3></div>
+      <Section title={t('global.section')}>
         <Toggle label={t('global.enabled')} hint={t('global.enabledHint')} checked={draft.enabled} onChange={(value) => patchTop('enabled', value)} />
         <Field label={t('global.titlePrefix')} hint={t('global.titlePrefixHint')} value={draft.titlePrefix} onChange={(value) => patchTop('titlePrefix', value)} />
         <Toggle label={t('global.mainAgentOnly')} hint={t('global.mainAgentOnlyHint')} checked={draft.mainAgentOnly} onChange={(value) => patchTop('mainAgentOnly', value)} />
-      </section>
-      <section style={S.section}>
-        <div style={S.header}><h3 style={S.heading}>{t('defaultChannel.title')}</h3></div>
+      </Section>
+      <Section title={t('defaultChannel.title')}>
         <div style={S.hint}>{t('defaultChannel.hint')}</div>
         <label style={S.field}>
           <div style={S.label}>{t('defaultChannel.title')}</div>
@@ -325,9 +317,8 @@ export function SettingsPage(props: SettingsPageProps): JSX.Element {
           </select>
         </label>
         <Field label={t('push.replyTimeout')} hint={t('push.replyTimeoutHint')} value={String(draft.push.replyTimeoutMs)} onChange={(value) => update({ ...draft, push: { ...draft.push, replyTimeoutMs: Number(value) || 120000 } })} />
-      </section>
-      <section style={S.section}>
-        <div style={S.header}><h3 style={S.heading}>{t('deliveries.title')}</h3></div>
+      </Section>
+      <Section title={t('deliveries.title')}>
         <div style={S.hint}>{t('deliveries.hint')}</div>
         {(status?.deliveries ?? []).slice(0, 20).map((row, index) => (
           <div key={String(row.at) + '-' + String(index)} style={S.hint}>
@@ -335,16 +326,14 @@ export function SettingsPage(props: SettingsPageProps): JSX.Element {
           </div>
         ))}
         {(status?.deliveries?.length ?? 0) === 0 ? <div style={S.hint}>{t('deliveries.empty')}</div> : null}
-      </section>
-      <section style={S.section}>
-        <div style={S.header}><h3 style={S.heading}>{t('events.section')}</h3></div>
+      </Section>
+      <Section title={t('events.section')}>
         <div style={S.hint}>{t('events.hint')}</div>
         {EVENT_KEYS.map((key) => (
           <Toggle key={key} label={t('events.' + key)} checked={draft.events[key]} onChange={(value) => update({ ...draft, events: { ...draft.events, [key]: value } })} />
         ))}
-      </section>
-      <section style={S.section}>
-        <div style={S.header}><h3 style={S.heading}>{t('messages.section')}</h3></div>
+      </Section>
+      <Section title={t('messages.section')}>
         <label style={S.field}>
           <div style={S.label}>{t('messages.locale')}</div>
           <div style={S.hint}>{t('messages.localeHint')}</div>
@@ -354,13 +343,12 @@ export function SettingsPage(props: SettingsPageProps): JSX.Element {
           </select>
         </label>
         <Toggle label={t('messages.hint')} hint={t('messages.hintHint')} checked={draft.messages.hint} onChange={(value) => update({ ...draft, messages: { ...draft.messages, hint: value } })} />
-      </section>
+      </Section>
     </>
   )
 
   const wechatSection = (
-    <section style={S.section}>
-      {header(t('wechat.title'), wechatStatus?.state)}
+    <Section title={t('wechat.title')} state={wechatStatus?.state}>
       <Toggle label={t('wechat.enabled')} checked={draft.channels.wechat.enabled} onChange={(value) => patchChannel('wechat', 'enabled', value)} />
       <Toggle label={t('wechat.interactive')} hint={t('wechat.interactiveHint')} checked={draft.channels.wechat.interactive} onChange={(value) => patchChannel('wechat', 'interactive', value)} />
       <ListField label={t('wechat.defaultTargets')} hint={t('wechat.defaultTargetsHint')} value={draft.channels.wechat.defaultTargets} onChange={(value) => patchChannel('wechat', 'defaultTargets', value)} />
@@ -375,12 +363,11 @@ export function SettingsPage(props: SettingsPageProps): JSX.Element {
         </div>
       )}
       {targetsLine(wechatStatus?.targets)}
-    </section>
+    </Section>
   )
 
   const aibotSection = (
-    <section style={S.section}>
-      {header(t('wecomAibot.title'), aibotStatus?.state)}
+    <Section title={t('wecomAibot.title')} state={aibotStatus?.state}>
       <Toggle label={t('wecomAibot.enabled')} checked={draft.channels['wecom-aibot'].enabled} onChange={(value) => patchChannel('wecom-aibot', 'enabled', value)} />
       <Toggle label={t('wecomAibot.interactive')} hint={t('wecomAibot.interactiveHint')} checked={draft.channels['wecom-aibot'].interactive} onChange={(value) => patchChannel('wecom-aibot', 'interactive', value)} />
       <Field label={t('wecomAibot.botId')} value={draft.channels['wecom-aibot'].botId} onChange={(value) => patchChannel('wecom-aibot', 'botId', value)} />
@@ -394,19 +381,18 @@ export function SettingsPage(props: SettingsPageProps): JSX.Element {
       {associationDone ? <div style={S.hint}>{t('wecomAibot.qrDone')}</div> : null}
       {aibotQr === null ? null : <img src={aibotQr} alt="QR" style={S.qr} />}
       {targetsLine(aibotStatus?.targets)}
-    </section>
+    </Section>
   )
 
   const webhookSection = (
-    <section style={S.section}>
-      {header(t('wecomWebhook.title'), webhookStatus?.state)}
+    <Section title={t('wecomWebhook.title')} state={webhookStatus?.state}>
       <Toggle label={t('wecomWebhook.enabled')} checked={draft.channels['wecom-webhook'].enabled} onChange={(value) => patchChannel('wecom-webhook', 'enabled', value)} />
       <Field label={t('wecomWebhook.webhookUrl')} hint={t('wecomWebhook.webhookUrlHint')} value={draft.channels['wecom-webhook'].webhookUrl} onChange={(value) => patchChannel('wecom-webhook', 'webhookUrl', value)} />
       <ListField label={t('wecomWebhook.mentions')} hint={t('wecomWebhook.mentionsHint')} value={draft.channels['wecom-webhook'].mentions} onChange={(value) => patchChannel('wecom-webhook', 'mentions', value)} />
       <div style={S.actions}>
         {action('test.wecom-webhook', t('channel.test'), () => { void runTest('wecom-webhook') })}
       </div>
-    </section>
+    </Section>
   )
 
   const verifyRow = (label: string, value: string): JSX.Element => (
@@ -447,8 +433,7 @@ export function SettingsPage(props: SettingsPageProps): JSX.Element {
   }
 
   const systemSection = (
-    <section style={S.section}>
-      {header(t('system.title'), systemStatus?.state)}
+    <Section title={t('system.title')} state={systemStatus?.state}>
       <section style={S.section}>
         {verifyRow(t('system.permission'), permissionLabel)}
         <div style={S.actions}>
@@ -469,7 +454,7 @@ export function SettingsPage(props: SettingsPageProps): JSX.Element {
         />
       ))}
       {systemStatus?.error === undefined ? null : <div style={S.hint}>{systemStatus.error}</div>}
-    </section>
+    </Section>
   )
 
   const body = section === 'general' ? generalSection

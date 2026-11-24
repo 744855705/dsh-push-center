@@ -57,9 +57,6 @@ export interface Config {
     readonly mainAgentOnly: boolean;
     readonly events: EventSwitches;
     /** Channels event notifications go to; empty means the default channel. */
-    readonly notify: {
-        readonly channels: readonly string[];
-    };
     readonly push: {
         /** Recipient for `push_message`; '' means the first usable channel. */
         readonly defaultChannel: string;

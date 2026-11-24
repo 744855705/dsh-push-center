@@ -65,7 +65,6 @@ export interface Config {
   readonly mainAgentOnly: boolean
   readonly events: EventSwitches
   /** Channels event notifications go to; empty means the default channel. */
-  readonly notify: { readonly channels: readonly string[] }
   readonly push: {
     /** Recipient for `push_message`; '' means the first usable channel. */
     readonly defaultChannel: string
@@ -104,9 +103,6 @@ const schema = z.object({
     confirmationRequired: true,
     todoProgress: true,
   }),
-  notify: z.object({
-    channels: z.array(z.string()).default([]).description('Channels event notifications go to; empty uses the default channel.'),
-  }).default({ channels: [] }),
   push: z.object({
     defaultChannel: z.string().default('').description('Channel used when a push names none.'),
     autoChannel: z.string().default('').description('Channel for automatic messages; empty follows the default channel.'),

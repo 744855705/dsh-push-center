@@ -2743,6 +2743,25 @@ function ListField(props) {
 		onChange: (text) => props.onChange(text.split(",").map((part) => part.trim()).filter((part) => part.length > 0))
 	});
 }
+/**
+* One card on the page: a title, the live state of that topic, and its body.
+* @param props - title, optional state label and the body.
+*/
+function Section(props) {
+	return /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("section", {
+		style: S.section,
+		children: [/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+			style: S.header,
+			children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("h3", {
+				style: S.heading,
+				children: props.title
+			}), props.state === void 0 ? null : /* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
+				style: S.state,
+				children: props.state
+			})]
+		}), props.children]
+	});
+}
 // src/client/rpc-contract.ts
 /** Wire constants shared with the settings page. */
 const RPC_CHANNEL = "/dsh-push-center";
@@ -2828,53 +2847,69 @@ const CUE = {
 	/** Gap between the two tones. */
 	gap: .12
 };
-/** Whether the cue plays; the settings page owns this decision. */
-let cueEnabled = true;
+/**
+* The audible cue played with a notification.
+*
+* Browser notifications carry no sound setting beyond `silent`, and Chromium on
+* macOS delivers them without a sound at all, so the page synthesizes its own
+* two-tone ding. Every failure is silent: a blocked AudioContext must never
+* break the notification itself.
+*/
+var NotificationCue = class {
+	#enabled = true;
+	#context;
+	/** @param enabled - whether a cue plays with each notification. */
+	constructor(enabled = true) {
+		this.#enabled = enabled;
+	}
+	/** Turn the cue on or off; the settings page owns this decision. */
+	setEnabled(on) {
+		this.#enabled = on;
+	}
+	/** Play the cue when enabled; does nothing otherwise. */
+	play() {
+		if (!this.#enabled) return;
+		try {
+			const Ctor = typeof AudioContext === "undefined" ? void 0 : AudioContext;
+			if (Ctor === void 0) return;
+			this.#context ??= new Ctor();
+			const audio = this.#context;
+			if (audio.state === "suspended") audio.resume();
+			const start = audio.currentTime;
+			const master = audio.createGain();
+			master.gain.value = CUE.master;
+			master.connect(audio.destination);
+			for (const [index, frequency] of CUE.frequencies.entries()) {
+				const at = start + index * CUE.gap;
+				const osc = audio.createOscillator();
+				const gain = audio.createGain();
+				osc.type = "triangle";
+				osc.frequency.value = frequency;
+				gain.gain.setValueAtTime(1e-4, at);
+				gain.gain.exponentialRampToValueAtTime(CUE.peak, at + CUE.attack);
+				gain.gain.exponentialRampToValueAtTime(1e-4, at + CUE.attack + CUE.decay);
+				osc.connect(gain);
+				gain.connect(master);
+				osc.start(at);
+				osc.stop(at + CUE.attack + CUE.decay + .02);
+			}
+		} catch {}
+	}
+};
+/** The page-wide cue; the settings page toggles it, notifications play it. */
+const cue = new NotificationCue();
 /**
 * Turn the notification cue on or off.
 * @param on - whether a cue should play with each notification.
 */
 function setNotificationSound(on) {
-	cueEnabled = on;
+	cue.setEnabled(on);
 }
-/**
-* Play a short two-tone cue from the page.
-*
-* Browser notifications carry no sound setting beyond `silent`, and Chromium on
-* macOS delivers them without a sound at all, so the page synthesizes its own.
-* Failure is silent: a missing AudioContext must never break the notification.
-*/
-function playCue() {
-	try {
-		const Ctor = typeof AudioContext === "undefined" ? void 0 : AudioContext;
-		if (Ctor === void 0) return;
-		cue ??= new Ctor();
-		const audio = cue;
-		if (audio.state === "suspended") audio.resume();
-		const start = audio.currentTime;
-		const master = audio.createGain();
-		master.gain.value = CUE.master;
-		master.connect(audio.destination);
-		for (const [index, frequency] of CUE.frequencies.entries()) {
-			const at = start + index * CUE.gap;
-			const osc = audio.createOscillator();
-			const gain = audio.createGain();
-			osc.type = "triangle";
-			osc.frequency.value = frequency;
-			gain.gain.setValueAtTime(1e-4, at);
-			gain.gain.exponentialRampToValueAtTime(CUE.peak, at + CUE.attack);
-			gain.gain.exponentialRampToValueAtTime(1e-4, at + CUE.attack + CUE.decay);
-			osc.connect(gain);
-			gain.connect(master);
-			osc.start(at);
-			osc.stop(at + CUE.attack + CUE.decay + .02);
-		}
-	} catch {}
-}
-/** One shared audio context, created on first use. */
-let cue;
 /**
 * Show one notification; formatting is the host's job.
+* @param title - notification title.
+* @param body - notification body.
+* @param tag - idempotency key: the OS replaces a notification with the same tag.
 * @returns whether a notification was actually raised, so the ledger can record it.
 */
 function showNotification(title, body, tag) {
@@ -2885,9 +2920,10 @@ function showNotification(title, body, tag) {
 		silent: false,
 		...tag === void 0 ? {} : { tag }
 	});
-	if (cueEnabled) playCue();
+	cue.play();
 	return true;
 }
+/** Read the persisted cursor; a blocked storage simply means per-load. */
 function readCursor() {
 	try {
 		return globalThis.localStorage?.getItem(CURSOR_KEY) ?? "";
@@ -2895,6 +2931,7 @@ function readCursor() {
 		return "";
 	}
 }
+/** Persist the cursor for the next load. */
 function writeCursor(id) {
 	try {
 		globalThis.localStorage?.setItem(CURSOR_KEY, id);
@@ -2903,93 +2940,110 @@ function writeCursor(id) {
 /**
 * Follow system-notification events for this page.
 *
-* Nothing runs until the stored config says system notifications are enabled:
-* a disabled profile opens no stream, starts no timer and sends no request
-* beyond the one config read. When enabled, the page prefers the host's event
-* stream and falls back to polling if the stream cannot be held open.
-* @param options - RPC caller, state observer and notification override.
-* @returns the stop function.
+* One agent per page: a second start would double every notification. Nothing
+* runs until the stored config says system notifications are enabled — a
+* disabled profile opens no stream, starts no timer and sends no request beyond
+* the one config read. When enabled, the agent prefers the host's event stream
+* and falls back to polling if the stream cannot be held open.
 */
-/** One agent per page: a second start would double every notification. */
-let runningAgent;
-/** Called when the page gains permission after the agent gave up waiting. */
-let wake;
-/**
-* Tell the agent that notification permission just changed.
-*
-* A page without permission deliberately takes no events, so the settings page
-* calls this once the person grants it.
-*/
-function wakeSystemNotifications() {
-	wake?.();
-}
-function startSystemNotifications(options) {
-	if (runningAgent !== void 0) return runningAgent;
-	const notify = options.notify ?? showNotification;
-	let stopped = false;
-	let controller;
-	let pollTimer;
-	let watchdog;
-	let mode = "off";
-	let cursor = readCursor();
-	const setMode = (next, lastError) => {
-		mode = next;
-		options.onChange?.({
-			mode,
+var NotificationAgent = class {
+	#options;
+	#notify;
+	#stopped = false;
+	#controller;
+	#pollTimer;
+	#watchdog;
+	#mode = "off";
+	#cursor = readCursor();
+	#wake;
+	/** @param options - RPC caller, state observer and notification override. */
+	constructor(options) {
+		this.#options = options;
+		this.#notify = options.notify ?? showNotification;
+	}
+	/** Start following events; returns the stop function. */
+	start() {
+		if (this.#stopped) return () => {};
+		this.#begin();
+		return () => {
+			this.stop();
+		};
+	}
+	/** Stop following events and release every timer. */
+	stop() {
+		this.#stopped = true;
+		this.#wake = void 0;
+		if (this.#pollTimer !== void 0) clearTimeout(this.#pollTimer);
+		if (this.#watchdog !== void 0) clearTimeout(this.#watchdog);
+		this.#controller?.abort();
+	}
+	/** Retry now: the page may have gained permission since the agent gave up. */
+	wake() {
+		this.#wake?.();
+	}
+	/** Report the current mode to the settings page. */
+	#setMode(next, lastError) {
+		this.#mode = next;
+		this.#options.onChange?.({
+			mode: this.#mode,
 			permission: permissionOf(),
 			...lastError === void 0 ? {} : { lastError }
 		});
-	};
-	const handle = (event) => {
+	}
+	/** Show one event at most once, and record what happened. */
+	#handle(event) {
 		if (typeof event?.id !== "string") return;
-		if (!shouldHandle(event.id, cursor, readCursor())) return;
-		cursor = event.id;
+		if (!shouldHandle(event.id, this.#cursor, readCursor())) return;
+		this.#cursor = event.id;
 		writeCursor(event.id);
-		const shown = notify(event.title, event.body, event.id);
-		options.call(RPC_CHANNEL, RPC_ENDPOINTS.systemDelivered, {
+		const shown = this.#notify(event.title, event.body, event.id);
+		this.#options.call(RPC_CHANNEL, RPC_ENDPOINTS.systemDelivered, {
 			id: event.id,
 			shown,
 			...event.type === void 0 ? {} : { type: event.type }
 		});
-	};
-	const drain = async () => {
-		const result = await options.call(RPC_CHANNEL, RPC_ENDPOINTS.systemPoll, { since: cursor });
+	}
+	/** Take whatever the host has queued for this page. */
+	async #drain() {
+		const result = await this.#options.call(RPC_CHANNEL, RPC_ENDPOINTS.systemPoll, { since: this.#cursor });
 		if (!result.ok) throw new Error(result.error?.message ?? "poll failed");
-		const drained = readDrain(result.value, cursor);
-		for (const event of drained.events) handle(event);
-		if (drained.cursor !== cursor) {
-			cursor = drained.cursor;
-			writeCursor(cursor);
+		const drained = readDrain(result.value, this.#cursor);
+		for (const event of drained.events) this.#handle(event);
+		if (drained.cursor !== this.#cursor) {
+			this.#cursor = drained.cursor;
+			writeCursor(this.#cursor);
 		}
-	};
-	const startPolling = (reason) => {
-		if (stopped) return;
-		setMode("poll", reason);
+	}
+	/** Fall back to polling; the loop stops with the agent. */
+	#startPolling(reason) {
+		if (this.#stopped) return;
+		this.#setMode("poll", reason);
 		const loop = async () => {
-			if (stopped) return;
+			if (this.#stopped) return;
 			try {
-				await drain();
+				await this.#drain();
 			} catch (error) {
-				if (!stopped) options.onChange?.({
-					mode,
+				if (!this.#stopped) this.#options.onChange?.({
+					mode: this.#mode,
 					permission: permissionOf(),
 					lastError: error instanceof Error ? error.message : String(error)
 				});
 			}
-			if (stopped) return;
-			pollTimer = setTimeout(() => {
+			if (this.#stopped) return;
+			this.#pollTimer = setTimeout(() => {
 				loop();
 			}, POLL_MS);
 		};
 		loop();
-	};
-	const startStream = async () => {
-		if (stopped) return;
-		controller = new AbortController();
+	}
+	/** Hold the live stream open, falling back to polling when it ends. */
+	async #startStream() {
+		if (this.#stopped) return;
+		this.#controller = new AbortController();
 		const response = await fetch(EVENTS_PATH, {
 			method: "GET",
 			headers: { accept: "text/event-stream" },
-			signal: controller.signal
+			signal: this.#controller.signal
 		});
 		if (!response.ok || response.body === null) throw new Error("stream rejected: HTTP " + String(response.status));
 		const reader = response.body.getReader();
@@ -2997,9 +3051,9 @@ function startSystemNotifications(options) {
 		let buffer = "";
 		let opened = false;
 		const arm = () => {
-			if (watchdog !== void 0) clearTimeout(watchdog);
-			watchdog = setTimeout(() => {
-				controller?.abort();
+			if (this.#watchdog !== void 0) clearTimeout(this.#watchdog);
+			this.#watchdog = setTimeout(() => {
+				this.#controller?.abort();
 			}, STREAM_WATCHDOG_MS);
 		};
 		arm();
@@ -3008,7 +3062,7 @@ function startSystemNotifications(options) {
 			if (done) break;
 			if (!opened) {
 				opened = true;
-				setMode("stream");
+				this.#setMode("stream");
 			}
 			arm();
 			buffer += decoder.decode(value, { stream: true });
@@ -3019,57 +3073,67 @@ function startSystemNotifications(options) {
 				for (const line of chunk.split("\n")) {
 					if (!line.startsWith("data:")) continue;
 					try {
-						handle(JSON.parse(line.slice(5).trim()));
+						this.#handle(JSON.parse(line.slice(5).trim()));
 					} catch {}
 				}
 				boundary = buffer.indexOf("\n\n");
 			}
 		}
-		if (!stopped) startPolling("stream closed");
-	};
-	const begin = async () => {
-		const config = await options.call(RPC_CHANNEL, RPC_ENDPOINTS.configGet, {});
-		if (stopped) return;
+		if (!this.#stopped) this.#startPolling("stream closed");
+	}
+	/** Read the config, decide whether to run, then pick a transport. */
+	async #begin() {
+		const config = await this.#options.call(RPC_CHANNEL, RPC_ENDPOINTS.configGet, {});
+		if (this.#stopped) return;
 		if (!config.ok) {
-			setMode("off", config.error?.message ?? "config unavailable");
+			this.#setMode("off", config.error?.message ?? "config unavailable");
 			return;
 		}
 		const settings = config.value?.system;
 		setNotificationSound(settings?.sound !== false);
-		if (!(settings?.enabled === true)) {
-			setMode("off");
+		if (settings?.enabled !== true) {
+			this.#setMode("off");
 			return;
 		}
 		if (permissionOf() === "unsupported") {
-			setMode("off", "this page has no Notification API");
+			this.#setMode("off", "this page has no Notification API");
 			return;
 		}
 		if (permissionOf() !== "granted") {
-			setMode("denied");
-			wake = () => {
-				if (stopped || permissionOf() !== "granted") return;
-				wake = void 0;
-				begin();
+			this.#setMode("denied");
+			this.#wake = () => {
+				if (this.#stopped || permissionOf() !== "granted") return;
+				this.#wake = void 0;
+				this.#begin();
 			};
 			return;
 		}
 		try {
-			await startStream();
+			await this.#startStream();
 		} catch (error) {
-			if (!stopped) startPolling(error instanceof Error ? error.message : String(error));
+			if (!this.#stopped) this.#startPolling(error instanceof Error ? error.message : String(error));
 		}
-	};
-	begin();
-	const stop = () => {
-		stopped = true;
-		runningAgent = void 0;
-		wake = void 0;
-		if (pollTimer !== void 0) clearTimeout(pollTimer);
-		if (watchdog !== void 0) clearTimeout(watchdog);
-		controller?.abort();
-	};
-	runningAgent = stop;
-	return stop;
+	}
+};
+/** The page's single agent; a second start returns its stop function. */
+let pageAgent;
+/**
+* Start following system notifications for this page.
+* @param options - RPC caller, state observer and notification override.
+* @returns the stop function.
+*/
+function startSystemNotifications(options) {
+	if (pageAgent === void 0) pageAgent = new NotificationAgent(options);
+	return pageAgent.start();
+}
+/**
+* Tell the page agent that notification permission just changed.
+*
+* A page without permission deliberately takes no events, so the settings page
+* calls this once the person grants it.
+*/
+function wakeSystemNotifications() {
+	pageAgent?.wake();
 }
 // src/client/SettingsPage.tsx
 /** The Push settings page: a channel menu on the left, one topic on the right. */
@@ -3254,7 +3318,6 @@ function SettingsPage(props) {
 			clearInterval(timer);
 		};
 	}, [loadStatus]);
-	const stateLabel = (value) => value === void 0 ? "" : t("state." + value);
 	const associationDone = status?.association?.phase === "idle" && status.association.completedAt !== void 0;
 	const associationError = status?.association?.phase === "error" ? t("wecomAibot.qr" + (status.association.errorKey === "expired" ? "Expired" : status.association.errorKey === "timeout" ? "Timeout" : "Failed")) : null;
 	const dirty = (0, react.useMemo)(() => config !== null && draft !== null && JSON.stringify(config) !== JSON.stringify(draft), [config, draft]);
@@ -3370,16 +3433,6 @@ function SettingsPage(props) {
 		});
 	};
 	/** Header: title plus the live state of that channel. */
-	const header = (title, state) => /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
-		style: S.header,
-		children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("h3", {
-			style: S.heading,
-			children: title
-		}), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
-			style: S.state,
-			children: stateLabel(state)
-		})]
-	});
 	const knownChats = (list) => (list ?? []).map((target) => target.id).join(", ") || t("channel.noTargetHint");
 	const targetsLine = (list) => /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
 		style: S.hint,
@@ -3390,16 +3443,9 @@ function SettingsPage(props) {
 		]
 	});
 	const generalSection = /* @__PURE__ */ (0, react_jsx_runtime.jsxs)(react_jsx_runtime.Fragment, { children: [
-		/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("section", {
-			style: S.section,
+		/* @__PURE__ */ (0, react_jsx_runtime.jsxs)(Section, {
+			title: t("global.section"),
 			children: [
-				/* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", {
-					style: S.header,
-					children: /* @__PURE__ */ (0, react_jsx_runtime.jsx)("h3", {
-						style: S.heading,
-						children: t("global.section")
-					})
-				}),
 				/* @__PURE__ */ (0, react_jsx_runtime.jsx)(Toggle, {
 					label: t("global.enabled"),
 					hint: t("global.enabledHint"),
@@ -3420,16 +3466,9 @@ function SettingsPage(props) {
 				})
 			]
 		}),
-		/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("section", {
-			style: S.section,
+		/* @__PURE__ */ (0, react_jsx_runtime.jsxs)(Section, {
+			title: t("defaultChannel.title"),
 			children: [
-				/* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", {
-					style: S.header,
-					children: /* @__PURE__ */ (0, react_jsx_runtime.jsx)("h3", {
-						style: S.heading,
-						children: t("defaultChannel.title")
-					})
-				}),
 				/* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", {
 					style: S.hint,
 					children: t("defaultChannel.hint")
@@ -3497,16 +3536,9 @@ function SettingsPage(props) {
 				})
 			]
 		}),
-		/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("section", {
-			style: S.section,
+		/* @__PURE__ */ (0, react_jsx_runtime.jsxs)(Section, {
+			title: t("deliveries.title"),
 			children: [
-				/* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", {
-					style: S.header,
-					children: /* @__PURE__ */ (0, react_jsx_runtime.jsx)("h3", {
-						style: S.heading,
-						children: t("deliveries.title")
-					})
-				}),
 				/* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", {
 					style: S.hint,
 					children: t("deliveries.hint")
@@ -3521,93 +3553,73 @@ function SettingsPage(props) {
 				}) : null
 			]
 		}),
-		/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("section", {
-			style: S.section,
-			children: [
-				/* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", {
-					style: S.header,
-					children: /* @__PURE__ */ (0, react_jsx_runtime.jsx)("h3", {
-						style: S.heading,
-						children: t("events.section")
-					})
-				}),
-				/* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", {
-					style: S.hint,
-					children: t("events.hint")
-				}),
-				EVENT_KEYS.map((key) => /* @__PURE__ */ (0, react_jsx_runtime.jsx)(Toggle, {
-					label: t("events." + key),
-					checked: draft.events[key],
-					onChange: (value) => update({
-						...draft,
-						events: {
-							...draft.events,
-							[key]: value
-						}
-					})
-				}, key))
-			]
-		}),
-		/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("section", {
-			style: S.section,
-			children: [
-				/* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", {
-					style: S.header,
-					children: /* @__PURE__ */ (0, react_jsx_runtime.jsx)("h3", {
-						style: S.heading,
-						children: t("messages.section")
-					})
-				}),
-				/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("label", {
-					style: S.field,
-					children: [
-						/* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", {
-							style: S.label,
-							children: t("messages.locale")
-						}),
-						/* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", {
-							style: S.hint,
-							children: t("messages.localeHint")
-						}),
-						/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("select", {
-							style: S.input,
-							value: draft.messages.locale,
-							onChange: (event) => update({
-								...draft,
-								messages: {
-									...draft.messages,
-									locale: event.target.value === "en" ? "en" : "zh"
-								}
-							}),
-							children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("option", {
-								value: "zh",
-								children: t("language.zh")
-							}), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("option", {
-								value: "en",
-								children: t("language.en")
-							})]
-						})
-					]
-				}),
-				/* @__PURE__ */ (0, react_jsx_runtime.jsx)(Toggle, {
-					label: t("messages.hint"),
-					hint: t("messages.hintHint"),
-					checked: draft.messages.hint,
-					onChange: (value) => update({
-						...draft,
-						messages: {
-							...draft.messages,
-							hint: value
-						}
-					})
+		/* @__PURE__ */ (0, react_jsx_runtime.jsxs)(Section, {
+			title: t("events.section"),
+			children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", {
+				style: S.hint,
+				children: t("events.hint")
+			}), EVENT_KEYS.map((key) => /* @__PURE__ */ (0, react_jsx_runtime.jsx)(Toggle, {
+				label: t("events." + key),
+				checked: draft.events[key],
+				onChange: (value) => update({
+					...draft,
+					events: {
+						...draft.events,
+						[key]: value
+					}
 				})
-			]
+			}, key))]
+		}),
+		/* @__PURE__ */ (0, react_jsx_runtime.jsxs)(Section, {
+			title: t("messages.section"),
+			children: [/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("label", {
+				style: S.field,
+				children: [
+					/* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", {
+						style: S.label,
+						children: t("messages.locale")
+					}),
+					/* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", {
+						style: S.hint,
+						children: t("messages.localeHint")
+					}),
+					/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("select", {
+						style: S.input,
+						value: draft.messages.locale,
+						onChange: (event) => update({
+							...draft,
+							messages: {
+								...draft.messages,
+								locale: event.target.value === "en" ? "en" : "zh"
+							}
+						}),
+						children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("option", {
+							value: "zh",
+							children: t("language.zh")
+						}), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("option", {
+							value: "en",
+							children: t("language.en")
+						})]
+					})
+				]
+			}), /* @__PURE__ */ (0, react_jsx_runtime.jsx)(Toggle, {
+				label: t("messages.hint"),
+				hint: t("messages.hintHint"),
+				checked: draft.messages.hint,
+				onChange: (value) => update({
+					...draft,
+					messages: {
+						...draft.messages,
+						hint: value
+					}
+				})
+			})]
 		})
 	] });
-	const wechatSection = /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("section", {
-		style: S.section,
+	const wechatSection = /* @__PURE__ */ (0, react_jsx_runtime.jsxs)(Section, {
+		title: t("wechat.title"),
+		state: wechatStatus?.state,
 		children: [
-			header(t("wechat.title"), wechatStatus?.state),
 			/* @__PURE__ */ (0, react_jsx_runtime.jsx)(Toggle, {
 				label: t("wechat.enabled"),
 				checked: draft.channels.wechat.enabled,
@@ -3644,10 +3656,10 @@ function SettingsPage(props) {
 			targetsLine(wechatStatus?.targets)
 		]
 	});
-	const aibotSection = /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("section", {
-		style: S.section,
+	const aibotSection = /* @__PURE__ */ (0, react_jsx_runtime.jsxs)(Section, {
+		title: t("wecomAibot.title"),
+		state: aibotStatus?.state,
 		children: [
-			header(t("wecomAibot.title"), aibotStatus?.state),
 			/* @__PURE__ */ (0, react_jsx_runtime.jsx)(Toggle, {
 				label: t("wecomAibot.enabled"),
 				checked: draft.channels["wecom-aibot"].enabled,
@@ -3699,10 +3711,10 @@ function SettingsPage(props) {
 			targetsLine(aibotStatus?.targets)
 		]
 	});
-	const webhookSection = /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("section", {
-		style: S.section,
+	const webhookSection = /* @__PURE__ */ (0, react_jsx_runtime.jsxs)(Section, {
+		title: t("wecomWebhook.title"),
+		state: webhookStatus?.state,
 		children: [
-			header(t("wecomWebhook.title"), webhookStatus?.state),
 			/* @__PURE__ */ (0, react_jsx_runtime.jsx)(Toggle, {
 				label: t("wecomWebhook.enabled"),
 				checked: draft.channels["wecom-webhook"].enabled,
@@ -3758,10 +3770,10 @@ function SettingsPage(props) {
 		const shown = showNotification(t("system.testTitle"), t("system.testBody") + " " + (/* @__PURE__ */ new Date()).toLocaleTimeString(), TEST_TAG);
 		say("system.test", shown ? t("system.testSent") : t("system.guidanceBrowser"));
 	};
-	const systemSection = /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("section", {
-		style: S.section,
+	const systemSection = /* @__PURE__ */ (0, react_jsx_runtime.jsxs)(Section, {
+		title: t("system.title"),
+		state: systemStatus?.state,
 		children: [
-			header(t("system.title"), systemStatus?.state),
 			/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("section", {
 				style: S.section,
 				children: [verifyRow(t("system.permission"), permissionLabel), /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {

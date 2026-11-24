@@ -86,7 +86,7 @@ export function ListField(props: { label: string; hint?: string; value: readonly
  * One card on the page: a title, the live state of that topic, and its body.
  * @param props - title, optional state label and the body.
  */
-export function Section(props: { title: string; state?: string; children?: ReactNode }): JSX.Element {
+export function Section(props: { title: string; state?: string | undefined; children?: ReactNode }): JSX.Element {
   return (
     <section style={S.section}>
       <div style={S.header}>

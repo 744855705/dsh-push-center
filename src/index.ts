@@ -51,10 +51,13 @@ export async function apply(rawCtx: unknown, patch: PluginConfig): Promise<void>
   // profile never builds an event.
   const rendererQueue = new RendererQueue()
   const http = createHttp()
-  const registry = new ChannelRegistry({
+  // One policy object, so the automatic switch has a single implementation.
+  const deliveryPolicy = {
     defaultChannelId: () => config.push.defaultChannel,
     autoChannelId: () => config.push.autoChannel,
-  })
+    autoEnabled: () => config.enabled,
+  }
+  const registry = new ChannelRegistry(deliveryPolicy)
   const bindings = new Bindings()
   const waiters = new Waiters()
   const host = new HostSessions({ get: (service) => ctx.get(service), logger })
@@ -68,7 +71,6 @@ export async function apply(rawCtx: unknown, patch: PluginConfig): Promise<void>
     logger,
     text: () => chatText(config.messages.locale),
     hintEnabled: () => config.messages.hint,
-    autoEnabled: () => config.enabled,
   })
   const notifier = new Notifier({
     registry,
@@ -80,7 +82,6 @@ export async function apply(rawCtx: unknown, patch: PluginConfig): Promise<void>
       events: () => config.events as unknown as Readonly<Record<NotifyEventType, boolean>>,
       titlePrefix: () => config.titlePrefix,
       hint: () => config.messages.hint,
-      channels: () => config.notify.channels,
       text: () => chatText(config.messages.locale),
       system: () => ({
         enabled: config.system.enabled,

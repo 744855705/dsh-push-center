@@ -10,9 +10,6 @@
     "confirmationRequired": true,
     "todoProgress": true
   },
-  "notify": {
-    "channels": []
-  },
   "push": {
     "defaultChannel": "",
     "autoChannel": "",

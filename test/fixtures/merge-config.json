@@ -17,9 +17,6 @@
         "confirmationRequired": true,
         "todoProgress": true
       },
-      "notify": {
-        "channels": []
-      },
       "push": {
         "defaultChannel": "",
         "autoChannel": "",
@@ -88,9 +85,6 @@
         "authorizationRequired": true,
         "confirmationRequired": true,
         "todoProgress": true
-      },
-      "notify": {
-        "channels": []
       },
       "push": {
         "defaultChannel": "",
@@ -166,9 +160,6 @@
         "authorizationRequired": true,
         "confirmationRequired": true,
         "todoProgress": true
-      },
-      "notify": {
-        "channels": []
       },
       "push": {
         "defaultChannel": "",
@@ -249,9 +240,6 @@
         "confirmationRequired": true,
         "todoProgress": true
       },
-      "notify": {
-        "channels": []
-      },
       "push": {
         "defaultChannel": "",
         "autoChannel": "",
@@ -331,9 +319,6 @@
         "authorizationRequired": true,
         "confirmationRequired": true,
         "todoProgress": false
-      },
-      "notify": {
-        "channels": []
       },
       "push": {
         "defaultChannel": "",

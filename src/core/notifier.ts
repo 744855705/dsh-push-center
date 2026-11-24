@@ -3,7 +3,7 @@ import type { ChatText } from './chat-text.js'
 import type { ChannelRegistry } from './registry.js'
 import type { Router } from './router.js'
 import type { Clock, Logger } from './ports.js'
-import type { DeliveredResult, OutboundMessage, SendReport, SkipReason } from './types.js'
+import type { DeliveredResult, OutboundMessage, SendReport } from './types.js'
 import { chooseRoute } from './renderer-queue.js'
 
 /** Notification kinds the plugin emits. */
@@ -30,8 +30,6 @@ export interface NotifierPolicy {
   events(): Readonly<Record<NotifyEventType, boolean>>
   titlePrefix(): string
   hint(): boolean
-  /** Channels event notifications go to; empty means the default channel. */
-  channels(): readonly string[]
   text(): ChatText
   /** System notifications: an independent switch set, never part of the chat fan-out. */
   system(): SystemRouting
@@ -150,21 +148,8 @@ export class Notifier {
     }
   }
 
+  /** Automatic delivery has one recipient; the registry resolves it and owns the switch. */
   async #dispatch(message: OutboundMessage): Promise<SendReport> {
-    const wanted = this.#deps.policy.channels()
-    // No explicit list: automatic delivery goes to the automatic recipient, which
-    // falls back to the default channel and then to the first usable one.
-    if (wanted.length === 0) return this.#deps.registry.sendAutomatic(message)
-    const channels = wanted
-      .map((id) => this.#deps.registry.get(id))
-      .filter((channel): channel is NonNullable<typeof channel> => channel !== undefined && channel.usable)
-    if (channels.length === 0) {
-      const skipped: SkipReason[] = wanted.map((id) => ({ channel: id, reason: 'not-ready' }))
-      return { delivered: [], skipped }
-    }
-    const reports = await Promise.all(channels.map((channel) => channel.send(message)))
-    const delivered: DeliveredResult[] = reports.flatMap((report) => report.delivered)
-    const skipped: SkipReason[] = reports.flatMap((report) => report.skipped)
-    return { delivered, skipped }
+    return this.#deps.registry.sendAutomatic(message)
   }
 }
