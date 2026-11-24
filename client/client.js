@@ -3289,8 +3289,8 @@ function SettingsPage(props) {
 		setConfig(result.value);
 		setDraft(result.value);
 		setNotificationSound(result.value.system.sound);
+		say("save", "");
 		setSaved(true);
-		say("save", t("saved"));
 		setTimeout(() => {
 			setSaved(false);
 		}, 2e3);

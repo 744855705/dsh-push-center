@@ -227,8 +227,10 @@ export function SettingsPage(props: SettingsPageProps): JSX.Element {
     setConfig(result.value as Config)
     setDraft(result.value as Config)
     setNotificationSound((result.value as Config).system.sound)
+    // Success is reported by the footer hint, which clears itself; a note under
+    // the button would stay there until the next action.
+    say('save', '')
     setSaved(true)
-    say('save', t('saved'))
     setTimeout(() => { setSaved(false) }, 2000)
     await loadStatus()
   }
