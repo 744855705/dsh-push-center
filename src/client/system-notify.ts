@@ -24,8 +24,8 @@ export interface SystemNotifyOptions {
   readonly call: SystemCall
   /** Called whenever the mode or permission changes. */
   readonly onChange?: (state: NotifyState) => void
-  /** Notification constructor override for tests. */
-  readonly notify?: (title: string, body: string) => void
+  /** Notification override for tests; returns whether it actually showed. */
+  readonly notify?: (title: string, body: string) => boolean
 }
 
 /** Where the cursor survives a reload. */
@@ -40,6 +40,7 @@ const STREAM_WATCHDOG_MS = 8000
 /** One event the host hands to the page. */
 interface RendererEvent {
   readonly id: string
+  readonly type?: string
   readonly title: string
   readonly body: string
 }
@@ -57,12 +58,16 @@ export async function requestPermission(): Promise<NotificationPermission | 'uns
   return Notification.requestPermission()
 }
 
-/** Show one notification; formatting is the host's job. */
-export function showNotification(title: string, body: string): void {
-  if (typeof Notification === 'undefined') return
-  if (Notification.permission !== 'granted') return
+/**
+ * Show one notification; formatting is the host's job.
+ * @returns whether a notification was actually raised, so the ledger can record it.
+ */
+export function showNotification(title: string, body: string): boolean {
+  if (typeof Notification === 'undefined') return false
+  if (Notification.permission !== 'granted') return false
   // eslint-disable-next-line no-new -- the constructor both posts and owns the toast
   new Notification(title, { body })
+  return true
 }
 
 function readCursor(): string {
@@ -114,7 +119,14 @@ export function startSystemNotifications(options: SystemNotifyOptions): () => vo
     if (event.id === cursor) return
     cursor = event.id
     writeCursor(event.id)
-    notify(event.title, event.body)
+    const shown = notify(event.title, event.body)
+    // The page owns the notification, so it also owns the delivery record: a
+    // denied permission must be visible in the host ledger, not silently lost.
+    void options.call(RPC_CHANNEL, RPC_ENDPOINTS.systemDelivered, {
+      id: event.id,
+      shown,
+      ...(event.type === undefined ? {} : { type: event.type }),
+    })
   }
 
   const drain = async (): Promise<void> => {

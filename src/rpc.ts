@@ -15,6 +15,7 @@ export const RPC_ENDPOINTS = Object.freeze({
   systemProbe: 'system.probe',
   systemPoll: 'system.poll',
   systemVerify: 'system.verify',
+  systemDelivered: 'system.delivered',
 })
 
 /** One event handed to the page. */
@@ -34,6 +35,8 @@ export interface SystemHandlers {
   poll(since: string | undefined): unknown
   /** Persist the self-check the person confirmed. */
   verify(input: { ok: boolean; app: 'web' | 'desktop'; platform: string }): Promise<unknown>
+  /** Record what the page did with one event (it owns the notification). */
+  delivered(input: { id: string; shown: boolean; type?: string }): unknown
   /** Follow events live; returns the unsubscribe function. */
   subscribe(listener: (event: RendererEventLike) => void): () => void
 }
@@ -173,6 +176,21 @@ async function serve(req: IncomingMessage, res: ServerResponse, handlers: RpcHan
       respond(res, rpcId, {
         ok: true,
         value: await handlers.system.verify({ ok: payload.ok, app: payload.app, platform: payload.platform }),
+      })
+      return
+    }
+    if (method === RPC_ENDPOINTS.systemDelivered) {
+      if (!isRecord(payload) || typeof payload.id !== 'string' || typeof payload.shown !== 'boolean') {
+        respond(res, rpcId, { ok: false, error: { message: 'system.delivered expects { id, shown }' } })
+        return
+      }
+      respond(res, rpcId, {
+        ok: true,
+        value: handlers.system.delivered({
+          id: payload.id,
+          shown: payload.shown,
+          ...(typeof payload.type === 'string' ? { type: payload.type } : {}),
+        }),
       })
       return
     }

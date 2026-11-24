@@ -160,6 +160,72 @@ test('the delivery ledger records every attempt and keeps the newest ones', asyn
   rmSync(dir, { recursive: true, force: true })
 })
 
+test('the ledger records what the page did with an event', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'dsh-push-renderer-log-'))
+  const log = new DeliveryLog({ path: join(dir, 'deliveries.json'), now: () => 7 })
+  await log.load()
+  log.recordRenderer(true, 'conversationCompleted')
+  log.recordRenderer(false, 'todoProgress')
+  const rows = log.list()
+  assert.equal(rows.length, 2)
+  assert.deepEqual(
+    { channel: rows[0]?.channel, ok: rows[0]?.ok, message: rows[0]?.message },
+    { channel: 'system', ok: false, message: 'in-app: todoProgress' },
+  )
+  assert.equal(rows[0]?.code, 'permission-denied', 'a page that could not show it is recorded as a failure')
+  assert.deepEqual({ ok: rows[1]?.ok, code: rows[1]?.code }, { ok: true, code: undefined })
+  await log.flush()
+  rmSync(dir, { recursive: true, force: true })
+})
+
+test('the delivered endpoint validates its payload and forwards the outcome', async () => {
+  const seen: unknown[] = []
+  let route: { handler: (req: unknown, res: unknown) => void } | undefined
+  installRpc({
+    inject: (_names: string[], callback: (scoped: unknown) => void) => callback({
+      webServer: { register: (value: { handler: (req: unknown, res: unknown) => void }) => { route = value; return () => {} } },
+    }),
+  } as never, {
+    getConfig: () => ({}),
+    setConfig: async () => ({}),
+    getStatus: () => ({}),
+    reloginWechat: async () => ({}),
+    startWecomAibotQr: async () => ({}),
+    testChannel: async () => ({}),
+    system: {
+      probe: () => ({}),
+      poll: () => ({ events: [], cursor: '' }),
+      verify: async () => ({}),
+      delivered: (input) => { seen.push(input); return { ok: true } },
+      subscribe: () => () => {},
+    },
+  } as never)
+
+  const call = async (payload: unknown): Promise<{ ok: boolean; error?: { message?: string } }> => {
+    const http = await import('node:http')
+    const server = http.createServer((request, response) => { route?.handler(request, response) })
+    await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve))
+    const address = server.address() as { port: number }
+    try {
+      const response = await fetch('http://127.0.0.1:' + String(address.port) + '/dsh-push-center/system.delivered', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ type: 'client-request', rpcId: 'r1', method: 'system.delivered', payload }),
+      })
+      const body = await response.json() as { result: { ok: boolean; error?: { message?: string } } }
+      return body.result
+    } finally {
+      server.close()
+    }
+  }
+
+  assert.equal((await call({ id: 'e1', shown: true, type: 'todoProgress' })).ok, true)
+  assert.deepEqual(seen, [{ id: 'e1', shown: true, type: 'todoProgress' }])
+  const bad = await call({ id: 'e1' })
+  assert.equal(bad.ok, false)
+  assert.match(bad.error?.message ?? '', /expects/)
+})
+
 test('the ledger caps its size', async () => {
   const dir = mkdtempSync(join(tmpdir(), 'dsh-push-log-'))
   const log = new DeliveryLog({ path: join(dir, 'deliveries.json'), limit: 2, now: () => 1 })

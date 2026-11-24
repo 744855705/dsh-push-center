@@ -317,6 +317,10 @@ export async function apply(rawCtx: unknown, patch: PluginConfig): Promise<void>
         await document.write(config)
         return config.system.verify
       },
+      delivered: (input) => {
+        deliveries.recordRenderer(input.shown, input.type)
+        return { ok: true }
+      },
       subscribe: (listener) => rendererQueue.subscribe(listener),
     },
     testChannel: async (channelId) => {

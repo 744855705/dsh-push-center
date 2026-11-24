@@ -79,6 +79,23 @@ export class DeliveryLog {
     this.#writing = this.#writing.then(() => this.#store.write(snapshot)).catch(() => {})
   }
 
+  /**
+   * Record what the page did with one queued event.
+   * The page owns the notification, so the host only learns the outcome from it;
+   * recording it keeps "did it go out" answerable for in-app delivery too.
+   * @param shown - whether the page actually raised a system notification.
+   * @param type - the event kind, for the message column.
+   */
+  recordRenderer(shown: boolean, type?: string): void {
+    this.record([{
+      channel: 'system',
+      target: '',
+      ok: shown,
+      ...(shown ? {} : { code: 'permission-denied', message: 'the page could not show this notification' }),
+      ...(type === undefined ? {} : { message: 'in-app: ' + type }),
+    }])
+  }
+
   /** Resolve once every pending write has settled. */
   async flush(): Promise<void> {
     await this.#writing
