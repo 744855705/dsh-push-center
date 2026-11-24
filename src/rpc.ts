@@ -87,6 +87,57 @@ async function readBody(req: IncomingMessage): Promise<unknown> {
   return JSON.parse(Buffer.concat(chunks).toString('utf8'))
 }
 
+/** One endpoint: how to reject a bad payload, and what it does. */
+interface Endpoint {
+  /** Returns the refusal message, or null when the payload is acceptable. */
+  readonly validate?: (payload: unknown) => string | null
+  readonly run: (handlers: RpcHandlers, payload: unknown) => unknown
+}
+
+/** Read `payload.channel`; validation already guaranteed it is a string. */
+function readChannel(payload: unknown): string {
+  return isRecord(payload) && typeof payload.channel === 'string' ? payload.channel : ''
+}
+
+/** Read `payload.since`: an absent cursor means "whatever is queued". */
+function readSince(payload: unknown): string | undefined {
+  return isRecord(payload) && typeof payload.since === 'string' ? payload.since : undefined
+}
+
+/** Read a delivered-event report; validation already checked both fields. */
+function readDelivered(payload: unknown): { id: string; shown: boolean; type?: string } {
+  const record = isRecord(payload) ? payload : {}
+  return {
+    id: typeof record.id === 'string' ? record.id : '',
+    shown: record.shown === true,
+    ...(typeof record.type === 'string' ? { type: record.type } : {}),
+  }
+}
+
+/** The settings surface, in one table instead of a dispatch chain. */
+const ENDPOINTS: Readonly<Record<string, Endpoint>> = {
+  [RPC_ENDPOINTS.configGet]: { run: (handlers) => handlers.getConfig() },
+  [RPC_ENDPOINTS.configSet]: {
+    validate: (payload) => (isRecord(payload) ? null : 'config.set expects an object'),
+    run: (handlers, payload) => handlers.setConfig(payload),
+  },
+  [RPC_ENDPOINTS.status]: { run: (handlers) => handlers.getStatus() },
+  [RPC_ENDPOINTS.channelTest]: {
+    validate: (payload) => (readChannel(payload).length > 0 ? null : 'channel.test expects { channel }'),
+    run: (handlers, payload) => handlers.testChannel(readChannel(payload)),
+  },
+  [RPC_ENDPOINTS.wecomAibotQrStart]: { run: (handlers) => handlers.startWecomAibotQr() },
+  [RPC_ENDPOINTS.wechatRelogin]: { run: (handlers) => handlers.reloginWechat() },
+  [RPC_ENDPOINTS.systemProbe]: { run: (handlers) => handlers.system.probe() },
+  [RPC_ENDPOINTS.systemPoll]: { run: (handlers, payload) => handlers.system.poll(readSince(payload)) },
+  [RPC_ENDPOINTS.systemDelivered]: {
+    validate: (payload) => (isRecord(payload) && typeof payload.id === 'string' && typeof payload.shown === 'boolean'
+      ? null
+      : 'system.delivered expects { id, shown }'),
+    run: (handlers, payload) => handlers.system.delivered(readDelivered(payload)),
+  },
+}
+
 /**
  * Serve one RPC exchange.
  * @param req - the HTTP request.
@@ -106,7 +157,7 @@ async function serve(req: IncomingMessage, res: ServerResponse, handlers: RpcHan
     res.end('not found')
     return
   }
-  let body: unknown
+    let body: unknown
   try {
     body = await readBody(req)
   } catch {
@@ -123,63 +174,17 @@ async function serve(req: IncomingMessage, res: ServerResponse, handlers: RpcHan
   const method = body.method
   const payload = body.payload
   try {
-    if (method === RPC_ENDPOINTS.configGet) {
-      respond(res, rpcId, { ok: true, value: handlers.getConfig() })
+    const endpoint = ENDPOINTS[method]
+    if (endpoint === undefined) {
+      respond(res, rpcId, { ok: false, error: { message: 'unknown endpoint: ' + method } })
       return
     }
-    if (method === RPC_ENDPOINTS.configSet) {
-      if (!isRecord(payload)) {
-        respond(res, rpcId, { ok: false, error: { message: 'config.set expects an object' } })
-        return
-      }
-      respond(res, rpcId, { ok: true, value: await handlers.setConfig(payload) })
+    const refused = endpoint.validate?.(payload) ?? null
+    if (refused !== null) {
+      respond(res, rpcId, { ok: false, error: { message: refused } })
       return
     }
-    if (method === RPC_ENDPOINTS.status) {
-      respond(res, rpcId, { ok: true, value: handlers.getStatus() })
-      return
-    }
-    if (method === RPC_ENDPOINTS.channelTest) {
-      if (!isRecord(payload) || typeof payload.channel !== 'string') {
-        respond(res, rpcId, { ok: false, error: { message: 'channel.test expects { channel }' } })
-        return
-      }
-      respond(res, rpcId, { ok: true, value: await handlers.testChannel(payload.channel) })
-      return
-    }
-    if (method === RPC_ENDPOINTS.wecomAibotQrStart) {
-      respond(res, rpcId, { ok: true, value: await handlers.startWecomAibotQr() })
-      return
-    }
-    if (method === RPC_ENDPOINTS.wechatRelogin) {
-      respond(res, rpcId, { ok: true, value: await handlers.reloginWechat() })
-      return
-    }
-    if (method === RPC_ENDPOINTS.systemProbe) {
-      respond(res, rpcId, { ok: true, value: handlers.system.probe() })
-      return
-    }
-    if (method === RPC_ENDPOINTS.systemPoll) {
-      const since = isRecord(payload) && typeof payload.since === 'string' ? payload.since : undefined
-      respond(res, rpcId, { ok: true, value: handlers.system.poll(since) })
-      return
-    }
-    if (method === RPC_ENDPOINTS.systemDelivered) {
-      if (!isRecord(payload) || typeof payload.id !== 'string' || typeof payload.shown !== 'boolean') {
-        respond(res, rpcId, { ok: false, error: { message: 'system.delivered expects { id, shown }' } })
-        return
-      }
-      respond(res, rpcId, {
-        ok: true,
-        value: handlers.system.delivered({
-          id: payload.id,
-          shown: payload.shown,
-          ...(typeof payload.type === 'string' ? { type: payload.type } : {}),
-        }),
-      })
-      return
-    }
-    respond(res, rpcId, { ok: false, error: { message: 'unknown endpoint: ' + method } })
+    respond(res, rpcId, { ok: true, value: await endpoint.run(handlers, payload) })
   } catch (error) {
     respond(res, rpcId, { ok: false, error: { message: error instanceof Error ? error.message : String(error) } })
   }

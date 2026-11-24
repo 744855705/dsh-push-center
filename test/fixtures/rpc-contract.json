@@ -1,0 +1,136 @@
+{
+  "valid": {
+    "config.get": {
+      "status": 200,
+      "keys": [
+        "ok",
+        "value"
+      ],
+      "ok": true,
+      "valueType": "object",
+      "error": null
+    },
+    "config.set": {
+      "status": 200,
+      "keys": [
+        "ok",
+        "value"
+      ],
+      "ok": true,
+      "valueType": "object",
+      "error": null
+    },
+    "status": {
+      "status": 200,
+      "keys": [
+        "ok",
+        "value"
+      ],
+      "ok": true,
+      "valueType": "object",
+      "error": null
+    },
+    "channel.test": {
+      "status": 200,
+      "keys": [
+        "ok",
+        "value"
+      ],
+      "ok": true,
+      "valueType": "object",
+      "error": null
+    },
+    "wecom-aibot.qr-start": {
+      "status": 200,
+      "keys": [
+        "ok",
+        "value"
+      ],
+      "ok": true,
+      "valueType": "object",
+      "error": null
+    },
+    "wechat.relogin": {
+      "status": 200,
+      "keys": [
+        "ok",
+        "value"
+      ],
+      "ok": true,
+      "valueType": "object",
+      "error": null
+    },
+    "system.probe": {
+      "status": 200,
+      "keys": [
+        "ok",
+        "value"
+      ],
+      "ok": true,
+      "valueType": "object",
+      "error": null
+    },
+    "system.poll": {
+      "status": 200,
+      "keys": [
+        "ok",
+        "value"
+      ],
+      "ok": true,
+      "valueType": "object",
+      "error": null
+    },
+    "system.delivered": {
+      "status": 200,
+      "keys": [
+        "ok",
+        "value"
+      ],
+      "ok": true,
+      "valueType": "object",
+      "error": null
+    }
+  },
+  "invalid": {
+    "config.set": {
+      "status": 200,
+      "keys": [
+        "error",
+        "ok"
+      ],
+      "ok": false,
+      "valueType": "undefined",
+      "error": "config.set expects an object"
+    },
+    "channel.test": {
+      "status": 200,
+      "keys": [
+        "error",
+        "ok"
+      ],
+      "ok": false,
+      "valueType": "undefined",
+      "error": "channel.test expects { channel }"
+    },
+    "system.delivered": {
+      "status": 200,
+      "keys": [
+        "error",
+        "ok"
+      ],
+      "ok": false,
+      "valueType": "undefined",
+      "error": "system.delivered expects { id, shown }"
+    },
+    "unknown.endpoint": {
+      "status": 200,
+      "keys": [
+        "error",
+        "ok"
+      ],
+      "ok": false,
+      "valueType": "undefined",
+      "error": "unknown endpoint: unknown.endpoint"
+    }
+  }
+}

@@ -1,4 +1,3 @@
-/** Events owed to an open page, and the routing decision between page and OS. */
 import type { NotifyEventType } from './notifier.js';
 /** How long a page counts as "open" after its last poll or its live stream. */
 export declare const RENDERER_HEARTBEAT_MS = 10000;

@@ -1,0 +1,59 @@
+{
+  "enabled": true,
+  "titlePrefix": "",
+  "mainAgentOnly": true,
+  "events": {
+    "conversationCompleted": true,
+    "conversationPaused": true,
+    "conversationFailed": true,
+    "authorizationRequired": true,
+    "confirmationRequired": true,
+    "todoProgress": true
+  },
+  "notify": {
+    "channels": []
+  },
+  "push": {
+    "defaultChannel": "",
+    "replyTimeoutMs": 120000
+  },
+  "messages": {
+    "locale": "zh",
+    "hint": true
+  },
+  "system": {
+    "enabled": false,
+    "backend": "auto",
+    "sound": true,
+    "events": {
+      "conversationCompleted": true,
+      "conversationPaused": true,
+      "conversationFailed": true,
+      "authorizationRequired": true,
+      "confirmationRequired": true,
+      "todoProgress": true
+    }
+  },
+  "channels": {
+    "wechat": {
+      "enabled": false,
+      "defaultTargets": [],
+      "interactive": true,
+      "sessionFile": ""
+    },
+    "wecom-aibot": {
+      "enabled": false,
+      "defaultTargets": [],
+      "interactive": true,
+      "botId": "",
+      "secret": "",
+      "wsUrl": ""
+    },
+    "wecom-webhook": {
+      "enabled": false,
+      "webhookUrl": "",
+      "mentions": [],
+      "msgType": "markdown"
+    }
+  }
+}

@@ -77,7 +77,12 @@ export interface Config {
 }
 /** Cordis-validated schema. */
 export declare const Config: z<Config>;
-/** Default configuration used when a channel or the settings page needs a base. */
+/**
+ * Default configuration.
+ *
+ * Derived from the schema itself, so a new field declares its default once:
+ * the schema, the type and this function can never disagree.
+ */
 export declare function defaultConfig(): Config;
 /**
  * Turn a channel on the first time it receives what it needs to work.
@@ -90,3 +95,13 @@ export declare function defaultConfig(): Config;
  * @returns next, with newly-filled channels enabled.
  */
 export declare function autoEnableOnFirstEntry(previous: Config, next: Config): Config;
+/**
+ * Merge defaults, the profile patch and the settings-page state.
+ *
+ * Later layers win; a layer that omits a field keeps the fallback instead of
+ * dropping it (a missing wsUrl used to crash the channel at start).
+ * @param patch - configuration from the profile patch layer.
+ * @param stored - configuration saved by the settings page.
+ * @returns the effective configuration.
+ */
+export declare function mergeConfig(patch: Config, stored: Partial<Config> | undefined): Config;

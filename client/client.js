@@ -2454,6 +2454,295 @@ function Mark(props) {
 		children: spec.paths.map((d) => /* @__PURE__ */ (0, react_jsx_runtime.jsx)("path", { d }, d))
 	});
 }
+// src/client/components.tsx
+/** Shared visual primitives for the settings page. */
+const BORDER = "1px solid var(--dsw-alias-border-secondary, #e5e7eb)";
+const S = {
+	layout: {
+		display: "flex",
+		alignItems: "flex-start",
+		gap: "12px",
+		padding: "2px 0",
+		minWidth: 0
+	},
+	nav: {
+		display: "flex",
+		flexDirection: "column",
+		gap: "4px",
+		flex: "0 0 92px",
+		width: "92px",
+		position: "sticky",
+		top: 0,
+		alignSelf: "flex-start",
+		flexShrink: 0
+	},
+	navItem: {
+		display: "flex",
+		flexDirection: "column",
+		alignItems: "center",
+		gap: "3px",
+		padding: "7px 4px",
+		borderRadius: "8px",
+		border: "1px solid transparent",
+		background: "transparent",
+		color: "inherit",
+		cursor: "pointer",
+		fontSize: "11px",
+		lineHeight: 1.25,
+		textAlign: "center"
+	},
+	navItemActive: {
+		display: "flex",
+		flexDirection: "column",
+		alignItems: "center",
+		gap: "3px",
+		padding: "7px 4px",
+		borderRadius: "8px",
+		border: BORDER,
+		background: "var(--dsw-alias-bg-secondary, rgba(127,127,127,0.08))",
+		color: "inherit",
+		cursor: "pointer",
+		fontSize: "11px",
+		lineHeight: 1.25,
+		textAlign: "center",
+		fontWeight: 600
+	},
+	navIcon: {
+		display: "flex",
+		alignItems: "center",
+		justifyContent: "center",
+		lineHeight: 0
+	},
+	content: {
+		display: "flex",
+		flexDirection: "column",
+		gap: "12px",
+		flex: "1 1 auto",
+		minWidth: 0,
+		minHeight: 0,
+		maxHeight: "min(68vh, 600px)",
+		overflowY: "auto",
+		overscrollBehavior: "contain",
+		paddingRight: "4px"
+	},
+	section: {
+		border: BORDER,
+		borderRadius: "10px",
+		padding: "14px 16px",
+		display: "flex",
+		flexDirection: "column",
+		gap: "2px"
+	},
+	header: {
+		display: "flex",
+		alignItems: "center",
+		gap: "10px",
+		margin: "0 0 10px"
+	},
+	heading: {
+		margin: 0,
+		fontSize: "15px",
+		fontWeight: 600
+	},
+	row: {
+		display: "flex",
+		alignItems: "center",
+		justifyContent: "space-between",
+		gap: "12px",
+		padding: "6px 0"
+	},
+	field: {
+		display: "flex",
+		flexDirection: "column",
+		gap: "4px",
+		padding: "6px 0"
+	},
+	label: {
+		fontSize: "13px",
+		opacity: .9
+	},
+	hint: {
+		fontSize: "12px",
+		opacity: .55,
+		marginTop: "2px",
+		lineHeight: 1.45
+	},
+	input: {
+		width: "100%",
+		boxSizing: "border-box",
+		padding: "6px 8px",
+		borderRadius: "6px",
+		border: "1px solid var(--dsw-alias-border-secondary, #d4d4d8)",
+		background: "transparent",
+		color: "inherit",
+		fontSize: "13px"
+	},
+	actions: {
+		display: "flex",
+		alignItems: "flex-start",
+		gap: "16px",
+		flexWrap: "wrap",
+		marginTop: "6px"
+	},
+	action: {
+		display: "flex",
+		flexDirection: "column",
+		alignItems: "flex-start",
+		gap: "4px",
+		minWidth: "96px"
+	},
+	note: {
+		fontSize: "12px",
+		opacity: .6,
+		minHeight: "16px",
+		maxWidth: "100%",
+		overflowWrap: "anywhere",
+		lineHeight: 1.45
+	},
+	button: {
+		padding: "6px 14px",
+		borderRadius: "7px",
+		border: "1px solid var(--dsw-alias-border-secondary, #d4d4d8)",
+		background: "transparent",
+		color: "inherit",
+		cursor: "pointer",
+		fontSize: "13px"
+	},
+	primary: {
+		padding: "6px 16px",
+		borderRadius: "7px",
+		border: "1px solid transparent",
+		background: "var(--dsw-alias-bg-accent, #2563eb)",
+		color: "#fff",
+		cursor: "pointer",
+		fontSize: "13px"
+	},
+	state: {
+		fontSize: "12px",
+		padding: "1px 8px",
+		borderRadius: "999px",
+		border: "1px solid currentColor",
+		opacity: .8
+	},
+	switch: {
+		position: "relative",
+		display: "inline-flex",
+		alignItems: "center",
+		flex: "0 0 auto",
+		width: "36px",
+		height: "20px",
+		borderRadius: "999px",
+		background: "var(--dsw-alias-bg-secondary, rgba(127,127,127,0.32))",
+		border: "1px solid var(--dsw-alias-border-secondary, #d4d4d8)",
+		transition: "background 120ms ease",
+		boxSizing: "border-box"
+	},
+	switchOn: {
+		background: "var(--dsw-alias-bg-accent, #2563eb)",
+		borderColor: "transparent"
+	},
+	switchFocus: {
+		outline: "2px solid var(--dsw-alias-bg-accent, #2563eb)",
+		outlineOffset: "2px"
+	},
+	switchInput: {
+		position: "absolute",
+		inset: 0,
+		width: "100%",
+		height: "100%",
+		margin: 0,
+		opacity: 0,
+		cursor: "pointer",
+		appearance: "none"
+	},
+	knob: {
+		position: "absolute",
+		left: "2px",
+		width: "14px",
+		height: "14px",
+		borderRadius: "50%",
+		background: "#fff",
+		boxShadow: "0 1px 2px rgba(0,0,0,0.25)",
+		transition: "transform 120ms ease",
+		pointerEvents: "none"
+	},
+	knobOn: { transform: "translateX(16px)" },
+	qr: {
+		width: "150px",
+		height: "150px",
+		border: BORDER,
+		borderRadius: "8px",
+		marginTop: "8px"
+	},
+	footer: {
+		display: "flex",
+		alignItems: "flex-start",
+		gap: "14px",
+		paddingTop: "4px"
+	}
+};
+/** Text input bound to one config path. */
+function Field(props) {
+	return /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("label", {
+		style: S.field,
+		children: [
+			/* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", {
+				style: S.label,
+				children: props.label
+			}),
+			props.hint === void 0 ? null : /* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", {
+				style: S.hint,
+				children: props.hint
+			}),
+			/* @__PURE__ */ (0, react_jsx_runtime.jsx)("input", {
+				style: S.input,
+				value: props.value,
+				placeholder: props.placeholder ?? "",
+				onChange: (event) => props.onChange(event.target.value)
+			})
+		]
+	});
+}
+/** Switch bound to one boolean config path. */
+function Toggle(props) {
+	const [focused, setFocused] = (0, react.useState)(false);
+	return /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("label", {
+		style: S.row,
+		children: [/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("span", { children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", {
+			style: S.label,
+			children: props.label
+		}), props.hint === void 0 ? null : /* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", {
+			style: S.hint,
+			children: props.hint
+		})] }), /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("span", {
+			style: {
+				...S.switch,
+				...props.checked ? S.switchOn : {},
+				...focused ? S.switchFocus : {}
+			},
+			children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("input", {
+				type: "checkbox",
+				style: S.switchInput,
+				checked: props.checked,
+				onChange: (event) => props.onChange(event.target.checked),
+				onFocus: () => setFocused(true),
+				onBlur: () => setFocused(false)
+			}), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", { style: {
+				...S.knob,
+				...props.checked ? S.knobOn : {}
+			} })]
+		})]
+	});
+}
+/** Comma separated list field. */
+function ListField(props) {
+	return /* @__PURE__ */ (0, react_jsx_runtime.jsx)(Field, {
+		label: props.label,
+		...props.hint === void 0 ? {} : { hint: props.hint },
+		value: props.value.join(", "),
+		onChange: (text) => props.onChange(text.split(",").map((part) => part.trim()).filter((part) => part.length > 0))
+	});
+}
 // src/client/rpc-contract.ts
 /** Wire constants shared with the settings page. */
 const RPC_CHANNEL = "/dsh-push-center";
@@ -2809,293 +3098,6 @@ const EVENT_KEYS = [
 	"confirmationRequired",
 	"todoProgress"
 ];
-const BORDER = "1px solid var(--dsw-alias-border-secondary, #e5e7eb)";
-const S = {
-	layout: {
-		display: "flex",
-		alignItems: "flex-start",
-		gap: "12px",
-		padding: "2px 0",
-		minWidth: 0
-	},
-	nav: {
-		display: "flex",
-		flexDirection: "column",
-		gap: "4px",
-		flex: "0 0 92px",
-		width: "92px",
-		position: "sticky",
-		top: 0,
-		alignSelf: "flex-start",
-		flexShrink: 0
-	},
-	navItem: {
-		display: "flex",
-		flexDirection: "column",
-		alignItems: "center",
-		gap: "3px",
-		padding: "7px 4px",
-		borderRadius: "8px",
-		border: "1px solid transparent",
-		background: "transparent",
-		color: "inherit",
-		cursor: "pointer",
-		fontSize: "11px",
-		lineHeight: 1.25,
-		textAlign: "center"
-	},
-	navItemActive: {
-		display: "flex",
-		flexDirection: "column",
-		alignItems: "center",
-		gap: "3px",
-		padding: "7px 4px",
-		borderRadius: "8px",
-		border: BORDER,
-		background: "var(--dsw-alias-bg-secondary, rgba(127,127,127,0.08))",
-		color: "inherit",
-		cursor: "pointer",
-		fontSize: "11px",
-		lineHeight: 1.25,
-		textAlign: "center",
-		fontWeight: 600
-	},
-	navIcon: {
-		display: "flex",
-		alignItems: "center",
-		justifyContent: "center",
-		lineHeight: 0
-	},
-	content: {
-		display: "flex",
-		flexDirection: "column",
-		gap: "12px",
-		flex: "1 1 auto",
-		minWidth: 0,
-		minHeight: 0,
-		maxHeight: "min(68vh, 600px)",
-		overflowY: "auto",
-		overscrollBehavior: "contain",
-		paddingRight: "4px"
-	},
-	section: {
-		border: BORDER,
-		borderRadius: "10px",
-		padding: "14px 16px",
-		display: "flex",
-		flexDirection: "column",
-		gap: "2px"
-	},
-	header: {
-		display: "flex",
-		alignItems: "center",
-		gap: "10px",
-		margin: "0 0 10px"
-	},
-	heading: {
-		margin: 0,
-		fontSize: "15px",
-		fontWeight: 600
-	},
-	row: {
-		display: "flex",
-		alignItems: "center",
-		justifyContent: "space-between",
-		gap: "12px",
-		padding: "6px 0"
-	},
-	field: {
-		display: "flex",
-		flexDirection: "column",
-		gap: "4px",
-		padding: "6px 0"
-	},
-	label: {
-		fontSize: "13px",
-		opacity: .9
-	},
-	hint: {
-		fontSize: "12px",
-		opacity: .55,
-		marginTop: "2px",
-		lineHeight: 1.45
-	},
-	input: {
-		width: "100%",
-		boxSizing: "border-box",
-		padding: "6px 8px",
-		borderRadius: "6px",
-		border: "1px solid var(--dsw-alias-border-secondary, #d4d4d8)",
-		background: "transparent",
-		color: "inherit",
-		fontSize: "13px"
-	},
-	actions: {
-		display: "flex",
-		alignItems: "flex-start",
-		gap: "16px",
-		flexWrap: "wrap",
-		marginTop: "6px"
-	},
-	action: {
-		display: "flex",
-		flexDirection: "column",
-		alignItems: "flex-start",
-		gap: "4px",
-		minWidth: "96px"
-	},
-	note: {
-		fontSize: "12px",
-		opacity: .6,
-		minHeight: "16px",
-		maxWidth: "100%",
-		overflowWrap: "anywhere",
-		lineHeight: 1.45
-	},
-	button: {
-		padding: "6px 14px",
-		borderRadius: "7px",
-		border: "1px solid var(--dsw-alias-border-secondary, #d4d4d8)",
-		background: "transparent",
-		color: "inherit",
-		cursor: "pointer",
-		fontSize: "13px"
-	},
-	primary: {
-		padding: "6px 16px",
-		borderRadius: "7px",
-		border: "1px solid transparent",
-		background: "var(--dsw-alias-bg-accent, #2563eb)",
-		color: "#fff",
-		cursor: "pointer",
-		fontSize: "13px"
-	},
-	state: {
-		fontSize: "12px",
-		padding: "1px 8px",
-		borderRadius: "999px",
-		border: "1px solid currentColor",
-		opacity: .8
-	},
-	switch: {
-		position: "relative",
-		display: "inline-flex",
-		alignItems: "center",
-		flex: "0 0 auto",
-		width: "36px",
-		height: "20px",
-		borderRadius: "999px",
-		background: "var(--dsw-alias-bg-secondary, rgba(127,127,127,0.32))",
-		border: "1px solid var(--dsw-alias-border-secondary, #d4d4d8)",
-		transition: "background 120ms ease",
-		boxSizing: "border-box"
-	},
-	switchOn: {
-		background: "var(--dsw-alias-bg-accent, #2563eb)",
-		borderColor: "transparent"
-	},
-	switchFocus: {
-		outline: "2px solid var(--dsw-alias-bg-accent, #2563eb)",
-		outlineOffset: "2px"
-	},
-	switchInput: {
-		position: "absolute",
-		inset: 0,
-		width: "100%",
-		height: "100%",
-		margin: 0,
-		opacity: 0,
-		cursor: "pointer",
-		appearance: "none"
-	},
-	knob: {
-		position: "absolute",
-		left: "2px",
-		width: "14px",
-		height: "14px",
-		borderRadius: "50%",
-		background: "#fff",
-		boxShadow: "0 1px 2px rgba(0,0,0,0.25)",
-		transition: "transform 120ms ease",
-		pointerEvents: "none"
-	},
-	knobOn: { transform: "translateX(16px)" },
-	qr: {
-		width: "150px",
-		height: "150px",
-		border: BORDER,
-		borderRadius: "8px",
-		marginTop: "8px"
-	},
-	footer: {
-		display: "flex",
-		alignItems: "flex-start",
-		gap: "14px",
-		paddingTop: "4px"
-	}
-};
-/** Text input bound to one config path. */
-function Field(props) {
-	return /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("label", {
-		style: S.field,
-		children: [
-			/* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", {
-				style: S.label,
-				children: props.label
-			}),
-			props.hint === void 0 ? null : /* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", {
-				style: S.hint,
-				children: props.hint
-			}),
-			/* @__PURE__ */ (0, react_jsx_runtime.jsx)("input", {
-				style: S.input,
-				value: props.value,
-				placeholder: props.placeholder ?? "",
-				onChange: (event) => props.onChange(event.target.value)
-			})
-		]
-	});
-}
-/** Switch bound to one boolean config path. */
-function Toggle(props) {
-	const [focused, setFocused] = (0, react.useState)(false);
-	return /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("label", {
-		style: S.row,
-		children: [/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("span", { children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", {
-			style: S.label,
-			children: props.label
-		}), props.hint === void 0 ? null : /* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", {
-			style: S.hint,
-			children: props.hint
-		})] }), /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("span", {
-			style: {
-				...S.switch,
-				...props.checked ? S.switchOn : {},
-				...focused ? S.switchFocus : {}
-			},
-			children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("input", {
-				type: "checkbox",
-				style: S.switchInput,
-				checked: props.checked,
-				onChange: (event) => props.onChange(event.target.checked),
-				onFocus: () => setFocused(true),
-				onBlur: () => setFocused(false)
-			}), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", { style: {
-				...S.knob,
-				...props.checked ? S.knobOn : {}
-			} })]
-		})]
-	});
-}
-/** Comma separated list field. */
-function ListField(props) {
-	return /* @__PURE__ */ (0, react_jsx_runtime.jsx)(Field, {
-		label: props.label,
-		...props.hint === void 0 ? {} : { hint: props.hint },
-		value: props.value.join(", "),
-		onChange: (text) => props.onChange(text.split(",").map((part) => part.trim()).filter((part) => part.length > 0))
-	});
-}
 /** The page component. */
 function SettingsPage(props) {
 	const { t, rpcCall, channel, endpoints } = props;

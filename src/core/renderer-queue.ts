@@ -1,4 +1,5 @@
 /** Events owed to an open page, and the routing decision between page and OS. */
+import { hostNotifierAvailable } from './platform.js'
 import type { NotifyEventType } from './notifier.js'
 
 /** How long a page counts as "open" after its last poll or its live stream. */
@@ -74,7 +75,7 @@ export interface RouteInput {
  * @returns the chosen route.
  */
 export function chooseRoute(input: RouteInput): NotificationRoute {
-  const hostWorks = input.platform !== 'darwin'
+  const hostWorks = hostNotifierAvailable(input.platform)
   if (input.backend === 'renderer') return 'renderer'
   if (input.backend === 'host') return hostWorks ? 'host' : 'drop'
   if (input.heartbeatAgeMs < RENDERER_HEARTBEAT_MS) return 'renderer'

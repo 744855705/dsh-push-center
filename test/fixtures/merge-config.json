@@ -1,0 +1,379 @@
+[
+  {
+    "name": "empty",
+    "patch": {
+      "channels": {}
+    },
+    "stored": null,
+    "result": {
+      "enabled": true,
+      "titlePrefix": "",
+      "mainAgentOnly": true,
+      "events": {
+        "conversationCompleted": true,
+        "conversationPaused": true,
+        "conversationFailed": true,
+        "authorizationRequired": true,
+        "confirmationRequired": true,
+        "todoProgress": true
+      },
+      "notify": {
+        "channels": []
+      },
+      "push": {
+        "defaultChannel": "",
+        "replyTimeoutMs": 120000
+      },
+      "messages": {
+        "locale": "zh",
+        "hint": true
+      },
+      "system": {
+        "enabled": false,
+        "events": {
+          "conversationCompleted": true,
+          "conversationPaused": true,
+          "conversationFailed": true,
+          "authorizationRequired": true,
+          "confirmationRequired": true,
+          "todoProgress": true
+        },
+        "backend": "auto",
+        "sound": true
+      },
+      "channels": {
+        "wechat": {
+          "enabled": false,
+          "defaultTargets": [],
+          "interactive": true,
+          "sessionFile": ""
+        },
+        "wecom-aibot": {
+          "enabled": false,
+          "defaultTargets": [],
+          "interactive": true,
+          "botId": "",
+          "secret": "",
+          "wsUrl": ""
+        },
+        "wecom-webhook": {
+          "enabled": false,
+          "webhookUrl": "",
+          "mentions": [],
+          "msgType": "markdown"
+        }
+      }
+    }
+  },
+  {
+    "name": "patch-only",
+    "patch": {
+      "titlePrefix": "[p]",
+      "channels": {
+        "wechat": {
+          "enabled": true
+        }
+      }
+    },
+    "stored": null,
+    "result": {
+      "enabled": true,
+      "titlePrefix": "[p]",
+      "mainAgentOnly": true,
+      "events": {
+        "conversationCompleted": true,
+        "conversationPaused": true,
+        "conversationFailed": true,
+        "authorizationRequired": true,
+        "confirmationRequired": true,
+        "todoProgress": true
+      },
+      "notify": {
+        "channels": []
+      },
+      "push": {
+        "defaultChannel": "",
+        "replyTimeoutMs": 120000
+      },
+      "messages": {
+        "locale": "zh",
+        "hint": true
+      },
+      "system": {
+        "enabled": false,
+        "events": {
+          "conversationCompleted": true,
+          "conversationPaused": true,
+          "conversationFailed": true,
+          "authorizationRequired": true,
+          "confirmationRequired": true,
+          "todoProgress": true
+        },
+        "backend": "auto",
+        "sound": true
+      },
+      "channels": {
+        "wechat": {
+          "enabled": true,
+          "defaultTargets": [],
+          "interactive": true,
+          "sessionFile": ""
+        },
+        "wecom-aibot": {
+          "enabled": false,
+          "defaultTargets": [],
+          "interactive": true,
+          "botId": "",
+          "secret": "",
+          "wsUrl": ""
+        },
+        "wecom-webhook": {
+          "enabled": false,
+          "webhookUrl": "",
+          "mentions": [],
+          "msgType": "markdown"
+        }
+      }
+    }
+  },
+  {
+    "name": "stored-wins",
+    "patch": {
+      "titlePrefix": "[p]",
+      "channels": {
+        "wecom-aibot": {
+          "enabled": true,
+          "wsUrl": "wss://a"
+        }
+      }
+    },
+    "stored": {
+      "titlePrefix": "[s]",
+      "system": {
+        "sound": false
+      }
+    },
+    "result": {
+      "enabled": true,
+      "titlePrefix": "[s]",
+      "mainAgentOnly": true,
+      "events": {
+        "conversationCompleted": true,
+        "conversationPaused": true,
+        "conversationFailed": true,
+        "authorizationRequired": true,
+        "confirmationRequired": true,
+        "todoProgress": true
+      },
+      "notify": {
+        "channels": []
+      },
+      "push": {
+        "defaultChannel": "",
+        "replyTimeoutMs": 120000
+      },
+      "messages": {
+        "locale": "zh",
+        "hint": true
+      },
+      "system": {
+        "enabled": false,
+        "events": {
+          "conversationCompleted": true,
+          "conversationPaused": true,
+          "conversationFailed": true,
+          "authorizationRequired": true,
+          "confirmationRequired": true,
+          "todoProgress": true
+        },
+        "backend": "auto",
+        "sound": false
+      },
+      "channels": {
+        "wechat": {
+          "enabled": false,
+          "defaultTargets": [],
+          "interactive": true,
+          "sessionFile": ""
+        },
+        "wecom-aibot": {
+          "enabled": true,
+          "defaultTargets": [],
+          "interactive": true,
+          "botId": "",
+          "secret": "",
+          "wsUrl": "wss://a"
+        },
+        "wecom-webhook": {
+          "enabled": false,
+          "webhookUrl": "",
+          "mentions": [],
+          "msgType": "markdown"
+        }
+      }
+    }
+  },
+  {
+    "name": "array-replace",
+    "patch": {
+      "channels": {
+        "wecom-webhook": {
+          "mentions": [
+            "a",
+            "b"
+          ]
+        }
+      }
+    },
+    "stored": {
+      "channels": {
+        "wecom-webhook": {
+          "mentions": [
+            "c"
+          ]
+        }
+      }
+    },
+    "result": {
+      "enabled": true,
+      "titlePrefix": "",
+      "mainAgentOnly": true,
+      "events": {
+        "conversationCompleted": true,
+        "conversationPaused": true,
+        "conversationFailed": true,
+        "authorizationRequired": true,
+        "confirmationRequired": true,
+        "todoProgress": true
+      },
+      "notify": {
+        "channels": []
+      },
+      "push": {
+        "defaultChannel": "",
+        "replyTimeoutMs": 120000
+      },
+      "messages": {
+        "locale": "zh",
+        "hint": true
+      },
+      "system": {
+        "enabled": false,
+        "events": {
+          "conversationCompleted": true,
+          "conversationPaused": true,
+          "conversationFailed": true,
+          "authorizationRequired": true,
+          "confirmationRequired": true,
+          "todoProgress": true
+        },
+        "backend": "auto",
+        "sound": true
+      },
+      "channels": {
+        "wechat": {
+          "enabled": false,
+          "defaultTargets": [],
+          "interactive": true,
+          "sessionFile": ""
+        },
+        "wecom-aibot": {
+          "enabled": false,
+          "defaultTargets": [],
+          "interactive": true,
+          "botId": "",
+          "secret": "",
+          "wsUrl": ""
+        },
+        "wecom-webhook": {
+          "enabled": false,
+          "webhookUrl": "",
+          "mentions": [
+            "c"
+          ],
+          "msgType": "markdown"
+        }
+      }
+    }
+  },
+  {
+    "name": "nested-partial",
+    "patch": {
+      "events": {
+        "todoProgress": false
+      },
+      "system": {
+        "events": {
+          "conversationPaused": false
+        }
+      },
+      "push": {
+        "replyTimeoutMs": 5000
+      }
+    },
+    "stored": {
+      "messages": {
+        "hint": false
+      }
+    },
+    "result": {
+      "enabled": true,
+      "titlePrefix": "",
+      "mainAgentOnly": true,
+      "events": {
+        "conversationCompleted": true,
+        "conversationPaused": true,
+        "conversationFailed": true,
+        "authorizationRequired": true,
+        "confirmationRequired": true,
+        "todoProgress": false
+      },
+      "notify": {
+        "channels": []
+      },
+      "push": {
+        "defaultChannel": "",
+        "replyTimeoutMs": 5000
+      },
+      "messages": {
+        "locale": "zh",
+        "hint": false
+      },
+      "system": {
+        "enabled": false,
+        "events": {
+          "conversationCompleted": true,
+          "conversationPaused": false,
+          "conversationFailed": true,
+          "authorizationRequired": true,
+          "confirmationRequired": true,
+          "todoProgress": true
+        },
+        "backend": "auto",
+        "sound": true
+      },
+      "channels": {
+        "wechat": {
+          "enabled": false,
+          "defaultTargets": [],
+          "interactive": true,
+          "sessionFile": ""
+        },
+        "wecom-aibot": {
+          "enabled": false,
+          "defaultTargets": [],
+          "interactive": true,
+          "botId": "",
+          "secret": "",
+          "wsUrl": ""
+        },
+        "wecom-webhook": {
+          "enabled": false,
+          "webhookUrl": "",
+          "mentions": [],
+          "msgType": "markdown"
+        }
+      }
+    }
+  }
+]

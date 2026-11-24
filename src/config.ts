@@ -175,42 +175,15 @@ const schema = z.object({
 /** Cordis-validated schema. */
 export const Config = schema as unknown as z<Config>
 
-/** Default configuration used when a channel or the settings page needs a base. */
+/**
+ * Default configuration.
+ *
+ * Derived from the schema itself, so a new field declares its default once:
+ * the schema, the type and this function can never disagree.
+ */
 export function defaultConfig(): Config {
-  return {
-    enabled: true,
-    titlePrefix: '',
-    mainAgentOnly: true,
-    events: {
-      conversationCompleted: true,
-      conversationPaused: true,
-      conversationFailed: true,
-      authorizationRequired: true,
-      confirmationRequired: true,
-      todoProgress: true,
-    },
-    notify: { channels: [] },
-    push: { defaultChannel: '', replyTimeoutMs: 120000 },
-    messages: { locale: 'zh', hint: true },
-    system: {
-      enabled: false,
-      backend: 'auto',
-      sound: true,
-      events: {
-        conversationCompleted: true,
-        conversationPaused: true,
-        conversationFailed: true,
-        authorizationRequired: true,
-        confirmationRequired: true,
-        todoProgress: true,
-      },
-    },
-    channels: {
-      wechat: { enabled: false, defaultTargets: [], interactive: true, sessionFile: '' },
-      'wecom-aibot': { enabled: false, defaultTargets: [], interactive: true, botId: '', secret: '', wsUrl: '' },
-      'wecom-webhook': { enabled: false, webhookUrl: '', mentions: [], msgType: 'markdown' },
-    },
-  }
+  // The schema applies every default, so no field is written twice.
+  return Config({} as Config)
 }
 
 /**
@@ -241,4 +214,39 @@ export function autoEnableOnFirstEntry(previous: Config, next: Config): Config {
       'wecom-webhook': enableHook ? { ...hook, enabled: true } : hook,
     },
   }
+}
+
+/** Whether a value is a plain object (arrays and null are not). */
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === 'object' && !Array.isArray(value)
+}
+
+/**
+ * Overlay one layer over another.
+ *
+ * Only keys the base knows are taken, so a stale settings file cannot inject
+ * unknown fields into the config; plain objects merge, everything else
+ * (arrays, scalars, null) replaces.
+ */
+function overlay(base: unknown, layer: unknown): unknown {
+  if (!isPlainObject(base) || !isPlainObject(layer)) return layer === undefined ? base : layer
+  const out: Record<string, unknown> = { ...base }
+  for (const key of Object.keys(base)) {
+    const value = layer[key]
+    if (value !== undefined) out[key] = overlay(out[key], value)
+  }
+  return out
+}
+
+/**
+ * Merge defaults, the profile patch and the settings-page state.
+ *
+ * Later layers win; a layer that omits a field keeps the fallback instead of
+ * dropping it (a missing wsUrl used to crash the channel at start).
+ * @param patch - configuration from the profile patch layer.
+ * @param stored - configuration saved by the settings page.
+ * @returns the effective configuration.
+ */
+export function mergeConfig(patch: Config, stored: Partial<Config> | undefined): Config {
+  return overlay(overlay(defaultConfig(), patch), stored ?? {}) as Config
 }
