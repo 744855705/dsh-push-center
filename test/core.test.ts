@@ -490,6 +490,20 @@ test('the renderer queue drains by cursor and expires what nobody collected', ()
   assert.equal(queue.heartbeatAgeMs() > 10_000, true)
 })
 
+test('a single-event drain keeps the event and still advances the cursor', () => {
+  const event = { id: 'e5', type: 'conversationCompleted', title: 'done', body: 'b', at: 1 }
+  // The host reports the newest id as the cursor; the page must handle the event
+  // anyway, which is why ordering matters: handle() skips an id equal to the cursor.
+  const drained = readDrain({ events: [event], cursor: 'e5' }, 'e4')
+  assert.equal(drained.events.length, 1, 'the only event in the response is not swallowed')
+  assert.equal(drained.events[0]?.id, 'e5')
+  assert.equal(drained.cursor, 'e5')
+
+  assert.deepEqual(readDrain({ events: [], cursor: 'e9' }, 'e4'), { events: [], cursor: 'e9' })
+  assert.deepEqual(readDrain(undefined, 'e4'), { events: [], cursor: 'e4' }, 'a bare response keeps the cursor')
+  assert.deepEqual(readDrain({}, 'e4'), { events: [], cursor: 'e4' })
+})
+
 test('the event route holds a stream open and pushes a notification as it happens', async () => {
   const http = await import('node:http')
   const queue = new RendererQueue()
@@ -952,7 +966,7 @@ test('the first credentials enable a channel, an explicit off stays off', () => 
 import { createILinkWire } from '../lib/channels/wechat/ilink.js'
 import { createPushTool } from '../lib/tool.js'
 import { DeliveryLog } from '../lib/core/delivery-log.js'
-import { RendererQueue, chooseRoute } from '../lib/core/renderer-queue.js'
+import { RendererQueue, chooseRoute, readDrain } from '../lib/core/renderer-queue.js'
 import { installRpc } from '../lib/rpc.js'
 import { Notifier } from '../lib/core/notifier.js'
 import { SystemChannel, notificationCommand } from '../lib/channels/system/index.js'

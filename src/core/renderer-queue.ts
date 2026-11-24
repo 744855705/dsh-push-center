@@ -20,6 +20,23 @@ export interface RendererEvent {
   readonly at: number
 }
 
+/**
+ * Read one poll response.
+ *
+ * Kept pure and shared with the page: the page must handle the events it
+ * receives *before* adopting the cursor, otherwise a response carrying a single
+ * event looks already-seen and is dropped.
+ * @param payload - the `system.poll` result value.
+ * @param current - the cursor the page sent.
+ * @returns the events to handle and the cursor to use next.
+ */
+export function readDrain(payload: unknown, current: string): { events: RendererEvent[]; cursor: string } {
+  const value = payload as { events?: unknown; cursor?: unknown } | undefined
+  const events = Array.isArray(value?.events) ? (value.events as RendererEvent[]) : []
+  const cursor = typeof value?.cursor === 'string' && value.cursor.length > 0 ? value.cursor : current
+  return { events, cursor }
+}
+
 /** Where one system notification should go. */
 export type NotificationRoute = 'renderer' | 'host' | 'drop'
 

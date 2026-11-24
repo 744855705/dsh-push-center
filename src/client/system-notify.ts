@@ -1,6 +1,7 @@
 /** Page-half system notifications: permission, live stream, polling fallback. */
 
 import { EVENTS_PATH, RPC_CHANNEL, RPC_ENDPOINTS } from './rpc-contract.js'
+import { readDrain } from '../core/renderer-queue.js'
 
 /** How the page is currently receiving events. */
 export type NotifyMode = 'off' | 'stream' | 'poll'
@@ -132,9 +133,14 @@ export function startSystemNotifications(options: SystemNotifyOptions): () => vo
   const drain = async (): Promise<void> => {
     const result = await options.call(RPC_CHANNEL, RPC_ENDPOINTS.systemPoll, { since: cursor })
     if (!result.ok) throw new Error(result.error?.message ?? 'poll failed')
-    const value = result.value as { events?: RendererEvent[]; cursor?: string } | undefined
-    if (typeof value?.cursor === 'string' && value.cursor.length > 0) cursor = value.cursor
-    for (const event of value?.events ?? []) handle(event)
+    const drained = readDrain(result.value, cursor)
+    // Handle first: handle() advances the cursor itself, so adopting the server
+    // cursor up front would make a single-event response look already-seen.
+    for (const event of drained.events) handle(event)
+    if (drained.cursor !== cursor) {
+      cursor = drained.cursor
+      writeCursor(cursor)
+    }
   }
 
   const startPolling = (reason?: string): void => {
