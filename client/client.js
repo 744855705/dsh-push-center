@@ -2525,6 +2525,19 @@ async function requestPermission() {
 	if (Notification.permission === "granted") return "granted";
 	return Notification.requestPermission();
 }
+/** Timbre of the cue: bright, short, and deliberately hard to miss. */
+const CUE = {
+	/** Two rising tones read as "done" rather than "alert". */
+	frequencies: [1568, 2093],
+	/** Peak gain per tone; the master keeps the pair from clipping. */
+	peak: .45,
+	master: .6,
+	/** Near-instant attack gives the "ding" its click. */
+	attack: .005,
+	decay: .18,
+	/** Gap between the two tones. */
+	gap: .12
+};
 /** Whether the cue plays; the settings page owns this decision. */
 let cueEnabled = true;
 /**
@@ -2549,19 +2562,22 @@ function playCue() {
 		const audio = cue;
 		if (audio.state === "suspended") audio.resume();
 		const start = audio.currentTime;
-		for (const [index, frequency] of [880, 1245].entries()) {
-			const at = start + index * .13;
+		const master = audio.createGain();
+		master.gain.value = CUE.master;
+		master.connect(audio.destination);
+		for (const [index, frequency] of CUE.frequencies.entries()) {
+			const at = start + index * CUE.gap;
 			const osc = audio.createOscillator();
 			const gain = audio.createGain();
-			osc.type = "sine";
+			osc.type = "triangle";
 			osc.frequency.value = frequency;
 			gain.gain.setValueAtTime(1e-4, at);
-			gain.gain.exponentialRampToValueAtTime(.18, at + .02);
-			gain.gain.exponentialRampToValueAtTime(1e-4, at + .11);
+			gain.gain.exponentialRampToValueAtTime(CUE.peak, at + CUE.attack);
+			gain.gain.exponentialRampToValueAtTime(1e-4, at + CUE.attack + CUE.decay);
 			osc.connect(gain);
-			gain.connect(audio.destination);
+			gain.connect(master);
 			osc.start(at);
-			osc.stop(at + .12);
+			osc.stop(at + CUE.attack + CUE.decay + .02);
 		}
 	} catch {}
 }

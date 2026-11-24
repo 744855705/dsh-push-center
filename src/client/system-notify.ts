@@ -63,6 +63,20 @@ export async function requestPermission(): Promise<NotificationPermission | 'uns
   return Notification.requestPermission()
 }
 
+/** Timbre of the cue: bright, short, and deliberately hard to miss. */
+const CUE = {
+  /** Two rising tones read as "done" rather than "alert". */
+  frequencies: [1568, 2093],
+  /** Peak gain per tone; the master keeps the pair from clipping. */
+  peak: 0.45,
+  master: 0.6,
+  /** Near-instant attack gives the "ding" its click. */
+  attack: 0.005,
+  decay: 0.18,
+  /** Gap between the two tones. */
+  gap: 0.12,
+} as const
+
 /** Whether the cue plays; the settings page owns this decision. */
 let cueEnabled = true
 
@@ -89,19 +103,22 @@ export function playCue(): void {
     const audio = cue
     if (audio.state === 'suspended') void audio.resume()
     const start = audio.currentTime
-    for (const [index, frequency] of [880, 1245].entries()) {
-      const at = start + index * 0.13
+    const master = audio.createGain()
+    master.gain.value = CUE.master
+    master.connect(audio.destination)
+    for (const [index, frequency] of CUE.frequencies.entries()) {
+      const at = start + index * CUE.gap
       const osc = audio.createOscillator()
       const gain = audio.createGain()
-      osc.type = 'sine'
+      osc.type = 'triangle'
       osc.frequency.value = frequency
       gain.gain.setValueAtTime(0.0001, at)
-      gain.gain.exponentialRampToValueAtTime(0.18, at + 0.02)
-      gain.gain.exponentialRampToValueAtTime(0.0001, at + 0.11)
+      gain.gain.exponentialRampToValueAtTime(CUE.peak, at + CUE.attack)
+      gain.gain.exponentialRampToValueAtTime(0.0001, at + CUE.attack + CUE.decay)
       osc.connect(gain)
-      gain.connect(audio.destination)
+      gain.connect(master)
       osc.start(at)
-      osc.stop(at + 0.12)
+      osc.stop(at + CUE.attack + CUE.decay + 0.02)
     }
   } catch {
     // A blocked or unsupported audio context must not break notifications.
