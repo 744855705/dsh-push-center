@@ -1,0 +1,152 @@
+{
+  "meta": {
+    "title": "推送",
+    "description": "把 DSH 的完成、暂停、失败、授权、提问与任务进度推送到微信和企业微信，并支持在聊天里直接应答、续接对话与主动推送消息。",
+    "detail": "docs/DETAIL.md"
+  },
+  "ui": {
+    "nav": "推送",
+    "page": {
+      "title": "推送",
+      "hint": "配置推送通道、默认去向与触发事件。修改后点击「保存」立即生效。"
+    },
+    "loading": "加载中…",
+    "loadFailed": "无法加载推送配置",
+    "save": "保存",
+    "saving": "保存中…",
+    "saved": "已保存",
+    "saveFailed": "保存失败",
+    "dirty": "有未保存的修改",
+    "global": {
+      "section": "通用",
+      "enabled": "启用推送",
+      "enabledHint": "关闭后不再发送任何通知，也不响应聊天指令",
+      "titlePrefix": "标题前缀",
+      "titlePrefixHint": "追加在每条通知标题前，例如 [DSH]；留空不加",
+      "mainAgentOnly": "仅主智能体",
+      "mainAgentOnlyHint": "子智能体的完成/进度保持静默；需要人回复的授权与提问不受影响"
+    },
+    "events": {
+      "section": "触发事件",
+      "hint": "选择哪些事件会触发推送。",
+      "conversationCompleted": "对话完成",
+      "conversationPaused": "对话暂停",
+      "conversationFailed": "对话失败",
+      "authorizationRequired": "需要授权",
+      "confirmationRequired": "需要回答",
+      "todoProgress": "任务进度"
+    },
+    "channels": {
+      "section": "通道",
+      "hint": "至少启用一个通道并填写完整凭据后才会开始推送。"
+    },
+    "wechat": {
+      "title": "微信",
+      "enabled": "启用微信机器人",
+      "interactive": "允许在微信里应答",
+      "interactiveHint": "关闭后只推送，不处理回复",
+      "defaultTargets": "默认收件人",
+      "defaultTargetsHint": "留空则发给最近说过话的人",
+      "login": "扫码登录",
+      "relogin": "重新登录",
+      "logout": "退出登录",
+      "scanHint": "用微信扫描二维码登录；登录后请先给机器人发一条消息，之后才能主动推送。",
+      "targets": "已知收件人",
+      "noTargets": "还没有人给机器人发过消息",
+      "bind": "扫码绑定",
+      "loginStarted": "已开始登录，二维码稍后出现",
+      "disabledHint": "未启用（点「扫码绑定」会自动启用并开始扫码）"
+    },
+    "wecomAibot": {
+      "title": "企业微信智能机器人",
+      "enabled": "启用智能机器人",
+      "interactive": "允许在企业微信里应答",
+      "interactiveHint": "关闭后只推送，不处理回复",
+      "botId": "Bot ID",
+      "secret": "Secret",
+      "defaultTargets": "默认会话",
+      "defaultTargetsHint": "单聊填 userid，群聊填 chatid；留空则发给最近说过话的会话",
+      "qrStart": "扫码关联",
+      "qrHint": "用企业微信扫码自动填入 Bot ID 与 Secret",
+      "status": "连接状态",
+      "qrExpired": "二维码已过期，请重新发起",
+      "qrTimeout": "扫码关联超时，请重试",
+      "qrFailed": "扫码关联失败",
+      "qrDone": "已关联，Bot ID 与 Secret 已自动填入",
+      "qrRelink": "重新关联",
+      "qrStarted": "已发起关联，二维码稍后出现"
+    },
+    "wecomWebhook": {
+      "title": "企业微信群机器人",
+      "enabled": "启用群机器人",
+      "webhookUrl": "Webhook 地址",
+      "webhookUrlHint": "https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=…",
+      "mentions": "提醒成员",
+      "mentionsHint": "填 userid 或 @all，用逗号分隔；仅文本消息生效",
+      "msgType": "消息类型"
+    },
+    "defaultChannel": {
+      "title": "默认通道",
+      "hint": "主动推送不指定通道时只发到这里；该通道不可用时直接报失败，不会改发其他通道。",
+      "auto": "自动（第一个启用且配置完整的通道）"
+    },
+    "push": {
+      "section": "主动推送",
+      "replyTimeout": "等待回复超时（毫秒）",
+      "replyTimeoutHint": "push_message 要求回复时最长等待时间，上限 300000"
+    },
+    "messages": {
+      "section": "聊天文案",
+      "locale": "聊天语言",
+      "localeHint": "推送到聊天里的文案语言，与设置页语言无关",
+      "hint": "附回复提示",
+      "hintHint": "在通知末尾附一行「回复即可继续本会话」"
+    },
+    "state": {
+      "ready": "已连接",
+      "opening": "连接中",
+      "degraded": "降级",
+      "error": "出错",
+      "closed": "未启动",
+      "disabled": "未启用"
+    },
+    "common": {
+      "cancel": "取消",
+      "retry": "重试",
+      "none": "无",
+      "unknown": "未知错误"
+    },
+    "language": {
+      "zh": "中文",
+      "en": "English"
+    },
+    "channel": {
+      "test": "发送测试",
+      "testOk": "测试消息已发出",
+      "testFailed": "测试失败",
+      "noTargetHint": "还没有已知会话：先给机器人发一条消息",
+      "knownChats": "已知会话"
+    },
+    "tabs": {
+      "general": "全局设置",
+      "wechat": "微信",
+      "wecomAibot": "企业微信",
+      "wecomWebhook": "群机器人",
+      "system": "系统通知"
+    },
+    "deliveries": {
+      "title": "最近投递",
+      "hint": "每条出站尝试一行：时间 · 渠道/目标 · 结果。用它能确认消息到底有没有发出去。",
+      "ok": "成功",
+      "failed": "失败",
+      "empty": "还没有投递记录。"
+    },
+    "system": {
+      "title": "系统通知",
+      "enabled": "启用系统通知",
+      "enabledHint": "会话事件直接弹到操作系统通知中心（macOS / Linux / Windows），不经过微信或企微。",
+      "events": "哪些事件弹系统通知",
+      "eventsHint": "与「全局设置」里的事件勾选互不影响：这里只决定哪些事件额外弹一条系统通知。"
+    }
+  }
+}

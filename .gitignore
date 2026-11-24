@@ -1,0 +1,24 @@
+# Dependencies (install with npm ci)
+/node_modules/
+
+# Build output: npm run build writes lib/ (tsc) and client/ (tsdown + wrap-client).
+# Leading slash matters: without it, "client/" would also swallow src/client/.
+/lib/
+/client/
+*.tgz
+*.tsbuildinfo
+
+# Documentation is kept outside the repository on purpose
+/docs/
+
+# DSH workspace data and agent/tooling artifacts — never source
+/.dsh/
+/.playwright-cli/
+/.dsh-code-index/
+/.dsh-tmp/
+/.dsh-spill/
+
+# Logs and OS noise
+*.log
+npm-debug.log*
+.DS_Store

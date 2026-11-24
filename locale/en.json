@@ -1,0 +1,152 @@
+{
+  "meta": {
+    "title": "Push",
+    "description": "Pushes DSH completions, pauses, failures, approvals, questions and task progress to WeChat and WeCom, with replies, conversation continuation and proactive pushes.",
+    "detail": "docs/DETAIL.md"
+  },
+  "ui": {
+    "nav": "Push",
+    "page": {
+      "title": "Push",
+      "hint": "Configure channels, default routing and triggers. Save applies immediately."
+    },
+    "loading": "Loading…",
+    "loadFailed": "Could not load the push configuration",
+    "save": "Save",
+    "saving": "Saving…",
+    "saved": "Saved",
+    "saveFailed": "Save failed",
+    "dirty": "Unsaved changes",
+    "global": {
+      "section": "General",
+      "enabled": "Enable push",
+      "enabledHint": "When off, no notification is sent and chat commands are ignored",
+      "titlePrefix": "Title prefix",
+      "titlePrefixHint": "Prepended to every notification title, e.g. [DSH]; leave empty for none",
+      "mainAgentOnly": "Main agent only",
+      "mainAgentOnlyHint": "Subagent completions and progress stay silent; approvals and questions are still delivered"
+    },
+    "events": {
+      "section": "Triggers",
+      "hint": "Choose which events send a push.",
+      "conversationCompleted": "Conversation completed",
+      "conversationPaused": "Conversation paused",
+      "conversationFailed": "Conversation failed",
+      "authorizationRequired": "Approval required",
+      "confirmationRequired": "Question waiting",
+      "todoProgress": "Task progress"
+    },
+    "channels": {
+      "section": "Channels",
+      "hint": "Enable at least one channel and fill in its credentials."
+    },
+    "wechat": {
+      "title": "WeChat",
+      "enabled": "Enable the WeChat bot",
+      "interactive": "Accept replies in WeChat",
+      "interactiveHint": "When off, pushes are sent but replies are ignored",
+      "defaultTargets": "Default recipients",
+      "defaultTargetsHint": "Leave empty to reach whoever messaged the bot most recently",
+      "login": "Scan to log in",
+      "relogin": "Log in again",
+      "logout": "Log out",
+      "scanHint": "Scan the QR code with WeChat. Send the bot one message after logging in so pushes can reach you.",
+      "targets": "Known recipients",
+      "noTargets": "Nobody has messaged the bot yet",
+      "bind": "Scan to bind",
+      "loginStarted": "Login started; the QR code appears shortly",
+      "disabledHint": "Disabled (binding turns it on and starts the scan)"
+    },
+    "wecomAibot": {
+      "title": "WeCom AI bot",
+      "enabled": "Enable the AI bot",
+      "interactive": "Accept replies in WeCom",
+      "interactiveHint": "When off, pushes are sent but replies are ignored",
+      "botId": "Bot ID",
+      "secret": "Secret",
+      "defaultTargets": "Default chats",
+      "defaultTargetsHint": "A userid for direct chat or a chatid for groups; empty reaches recent chats",
+      "qrStart": "Scan to associate",
+      "qrHint": "Scan with WeCom to fill in the Bot ID and Secret",
+      "status": "Connection",
+      "qrExpired": "The QR code expired; start again",
+      "qrTimeout": "Association timed out; try again",
+      "qrFailed": "Association failed",
+      "qrDone": "Associated; Bot ID and Secret were filled in",
+      "qrRelink": "Relink",
+      "qrStarted": "Association started; the QR code appears shortly"
+    },
+    "wecomWebhook": {
+      "title": "WeCom group bot",
+      "enabled": "Enable the group bot",
+      "webhookUrl": "Webhook URL",
+      "webhookUrlHint": "https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=…",
+      "mentions": "Mentions",
+      "mentionsHint": "userid or @all, comma separated; text messages only",
+      "msgType": "Message type"
+    },
+    "defaultChannel": {
+      "title": "Default channel",
+      "hint": "Proactive pushes without a channel go here only; when it is unavailable the push fails instead of moving to another channel.",
+      "auto": "Automatic (first enabled, fully configured channel)"
+    },
+    "push": {
+      "section": "Proactive push",
+      "replyTimeout": "Reply timeout (ms)",
+      "replyTimeoutHint": "Longest wait when push_message asks for a reply; 300000 maximum"
+    },
+    "messages": {
+      "section": "Chat wording",
+      "locale": "Chat language",
+      "localeHint": "Language of messages sent to chat, independent of this page",
+      "hint": "Reply hint",
+      "hintHint": "Append a line telling the reader that replying continues the conversation"
+    },
+    "state": {
+      "ready": "Connected",
+      "opening": "Connecting",
+      "degraded": "Degraded",
+      "error": "Error",
+      "closed": "Stopped",
+      "disabled": "Disabled"
+    },
+    "common": {
+      "cancel": "Cancel",
+      "retry": "Retry",
+      "none": "None",
+      "unknown": "Unknown error"
+    },
+    "language": {
+      "zh": "中文",
+      "en": "English"
+    },
+    "channel": {
+      "test": "Send test",
+      "testOk": "Test message sent",
+      "testFailed": "Test failed",
+      "noTargetHint": "No known chat yet: message the bot once",
+      "knownChats": "Known chats"
+    },
+    "tabs": {
+      "general": "General",
+      "wechat": "WeChat",
+      "wecomAibot": "WeCom",
+      "wecomWebhook": "Group bot",
+      "system": "System"
+    },
+    "deliveries": {
+      "title": "Recent deliveries",
+      "hint": "One row per outbound attempt: time · channel/target · result. This is how you tell whether a message actually left.",
+      "ok": "ok",
+      "failed": "failed",
+      "empty": "No deliveries recorded yet."
+    },
+    "system": {
+      "title": "System notifications",
+      "enabled": "Enable system notifications",
+      "enabledHint": "Session events raise an OS notification (macOS / Linux / Windows) instead of going through WeChat or WeCom.",
+      "events": "Events that raise a system notification",
+      "eventsHint": "Independent of the event switches under General: this only decides which events also pop an OS notification."
+    }
+  }
+}

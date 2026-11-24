@@ -1,0 +1,40 @@
+# dsh-push-center — bundle patch layer.
+# Installed by `dsh plugin --profile <name> add dsh-push-center`.
+- insert:
+    - id: push-center
+      name: dsh-push-center
+      config:
+        enabled: true
+        titlePrefix: ''
+        mainAgentOnly: true
+        events:
+          conversationCompleted: true
+          conversationPaused: true
+          conversationFailed: true
+          authorizationRequired: true
+          confirmationRequired: true
+          todoProgress: true
+        notify:
+          channels: []
+        push:
+          defaultChannel: ''
+          replyTimeoutMs: 120000
+        messages:
+          locale: zh
+          hint: true
+        channels:
+          wechat:
+            enabled: false
+            defaultTargets: []
+            interactive: true
+          wecom-aibot:
+            enabled: false
+            botId: ''
+            secret: ''
+            defaultTargets: []
+            interactive: true
+          wecom-webhook:
+            enabled: false
+            webhookUrl: ''
+            mentions: []
+            msgType: markdown
