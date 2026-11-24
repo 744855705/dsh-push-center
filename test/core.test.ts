@@ -328,10 +328,11 @@ test('system notifications follow their own switches, not the chat ones', async 
 
   await notifier.emit({ type: 'conversationCompleted', title: 'done', body: 'body' })
   assert.equal(chat.sent.length, 1)
-  assert.equal(queue.since(undefined).events.length, 0, 'the first poll only learns the cursor')
-  assert.equal(queue.since('nope').events.length, 0)
-  const drained = queue.since('')
-  assert.equal(drained.events.length, 0)
+  // A page that has no cursor yet still receives what is queued.
+  const drained = queue.since(undefined)
+  assert.equal(drained.events.length, 1)
+  assert.equal(drained.events[0]?.title, 'done')
+  assert.equal(queue.since('').events.length, 1, 'an empty cursor behaves like none')
 
   await notifier.emit({ type: 'todoProgress', title: 'progress', body: 'body' })
   assert.equal(chat.sent.length, 2, 'chat still receives the event')
@@ -479,7 +480,8 @@ test('the renderer queue drains by cursor and expires what nobody collected', ()
 
   const first = queue.enqueue({ type: 'conversationCompleted', title: 'a', body: 'a' })
   const opened = queue.since(undefined)
-  assert.equal(opened.events.length, 0, 'a fresh page starts from now')
+  assert.equal(opened.events.length, 1, 'a page that never saw an id still gets the queued event')
+  assert.equal(opened.events[0]?.id, first.id)
   assert.equal(opened.cursor, first.id)
 
   const second = queue.enqueue({ type: 'conversationCompleted', title: 'b', body: 'b' })
@@ -488,6 +490,27 @@ test('the renderer queue drains by cursor and expires what nobody collected', ()
   now += 61_000
   assert.equal(queue.since(second.id).events.length, 0, 'events past their TTL are gone')
   assert.equal(queue.heartbeatAgeMs() > 10_000, true)
+})
+
+test('an unknown cursor never swallows what is already queued', () => {
+  let now = 1_000
+  const queue = new RendererQueue(() => now)
+  const first = queue.enqueue({ type: 'conversationCompleted', title: 'a', body: 'a' })
+
+  // A host restart changes every id; the page's stored cursor no longer exists.
+  const restarted = queue.since('1795000000000-9')
+  assert.equal(restarted.events.length, 1, 'the queued event is still delivered')
+  assert.equal(restarted.events[0]?.id, first.id)
+  assert.equal(restarted.cursor, first.id)
+
+  // A known cursor only returns what came after it.
+  const second = queue.enqueue({ type: 'conversationCompleted', title: 'b', body: 'b' })
+  assert.deepEqual(queue.since(first.id).events.map((event) => event.id), [second.id])
+  assert.deepEqual(queue.since(second.id).events, [])
+
+  // Expired events are not resurrected for an unknown cursor either.
+  now += 61_000
+  assert.deepEqual(queue.since('gone').events, [])
 })
 
 test('a single-event drain keeps the event and still advances the cursor', () => {

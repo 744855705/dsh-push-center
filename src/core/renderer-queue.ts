@@ -135,9 +135,12 @@ export class RendererQueue {
     this.#events = this.#events.filter((item) => now - item.at <= RENDERER_EVENT_TTL_MS)
     const last = this.#events.at(-1)
     const nextCursor = last?.id ?? cursor ?? ''
-    if (cursor === undefined || cursor.length === 0) return { events: [], cursor: nextCursor }
+    // An unknown cursor means the page is new, or the host restarted and its ids
+    // changed. Queued events are then still owed to it: a duplicate is harmless
+    // (the page de-duplicates by id), a lost notification is not.
+    if (cursor === undefined || cursor.length === 0) return { events: this.#events, cursor: nextCursor }
     const index = this.#events.findIndex((item) => item.id === cursor)
-    if (index === -1) return { events: [], cursor: nextCursor }
+    if (index === -1) return { events: this.#events, cursor: nextCursor }
     return { events: this.#events.slice(index + 1), cursor: nextCursor }
   }
 

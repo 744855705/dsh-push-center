@@ -35,8 +35,12 @@ const CURSOR_KEY = 'dsh-push-center:notified'
 /** Background polling cadence when the stream is unavailable. */
 const POLL_MS = 3000
 
-/** How long a silent stream may stay open before it is treated as dead. */
-const STREAM_WATCHDOG_MS = 8000
+/**
+ * How long a silent stream may stay open before it is treated as dead.
+ * Must exceed the host's 15s keep-alive comment, or the page would abort every
+ * healthy stream before its first heartbeat and never use the live path.
+ */
+const STREAM_WATCHDOG_MS = 25_000
 
 /** One event the host hands to the page. */
 interface RendererEvent {
