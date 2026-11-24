@@ -21,6 +21,21 @@ export interface RendererEvent {
 }
 
 /**
+ * Whether the page should act on one event.
+ *
+ * Two cursors guard it: the page's own in-memory one, and the one persisted in
+ * storage (which a second tab also writes). Both are checked because a poll and
+ * the page's own re-delivery can race within the same tick.
+ * @param eventId - the event being considered.
+ * @param memoryCursor - the last id this page instance handled.
+ * @param storedCursor - the last id persisted for this origin.
+ * @returns true when the event still needs handling.
+ */
+export function shouldHandle(eventId: string, memoryCursor: string, storedCursor: string): boolean {
+  return eventId.length > 0 && eventId !== memoryCursor && eventId !== storedCursor
+}
+
+/**
  * Read one poll response.
  *
  * Kept pure and shared with the page: the page must handle the events it

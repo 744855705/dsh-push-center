@@ -178,6 +178,17 @@ test('the ledger records what the page did with an event', async () => {
   rmSync(dir, { recursive: true, force: true })
 })
 
+test('an event is handled at most once, across the page memory and storage', () => {
+  // Fresh event: neither cursor has seen it.
+  assert.equal(shouldHandle('e2', 'e1', 'e1'), true)
+  // This page instance handled it.
+  assert.equal(shouldHandle('e1', 'e1', 'e0'), false)
+  // Another tab persisted it first.
+  assert.equal(shouldHandle('e1', 'e0', 'e1'), false)
+  // An empty id is never handled.
+  assert.equal(shouldHandle('', 'e1', 'e1'), false)
+})
+
 test('the delivered endpoint validates its payload and forwards the outcome', async () => {
   const seen: unknown[] = []
   let route: { handler: (req: unknown, res: unknown) => void } | undefined
@@ -989,7 +1000,7 @@ test('the first credentials enable a channel, an explicit off stays off', () => 
 import { createILinkWire } from '../lib/channels/wechat/ilink.js'
 import { createPushTool } from '../lib/tool.js'
 import { DeliveryLog } from '../lib/core/delivery-log.js'
-import { RendererQueue, chooseRoute, readDrain } from '../lib/core/renderer-queue.js'
+import { RendererQueue, chooseRoute, readDrain, shouldHandle } from '../lib/core/renderer-queue.js'
 import { installRpc } from '../lib/rpc.js'
 import { Notifier } from '../lib/core/notifier.js'
 import { SystemChannel, notificationCommand } from '../lib/channels/system/index.js'

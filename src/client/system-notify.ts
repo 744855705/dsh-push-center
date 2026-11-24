@@ -1,7 +1,7 @@
 /** Page-half system notifications: permission, live stream, polling fallback. */
 
 import { EVENTS_PATH, RPC_CHANNEL, RPC_ENDPOINTS } from './rpc-contract.js'
-import { readDrain } from '../core/renderer-queue.js'
+import { readDrain, shouldHandle } from '../core/renderer-queue.js'
 
 /** How the page is currently receiving events. */
 export type NotifyMode = 'off' | 'stream' | 'poll'
@@ -101,7 +101,11 @@ function writeCursor(id: string): void {
  * @param options - RPC caller, state observer and notification override.
  * @returns the stop function.
  */
+/** One agent per page: a second start would double every notification. */
+let runningAgent: (() => void) | undefined
+
 export function startSystemNotifications(options: SystemNotifyOptions): () => void {
+  if (runningAgent !== undefined) return runningAgent
   const notify = options.notify ?? showNotification
   let stopped = false
   let controller: AbortController | undefined
@@ -120,8 +124,9 @@ export function startSystemNotifications(options: SystemNotifyOptions): () => vo
   }
 
   const handle = (event: RendererEvent): void => {
-    if (typeof event?.id !== 'string' || event.id.length === 0) return
-    if (event.id === cursor) return
+    if (typeof event?.id !== 'string') return
+    // Re-read storage: a second tab may have handled this id already.
+    if (!shouldHandle(event.id, cursor, readCursor())) return
     cursor = event.id
     writeCursor(event.id)
     const shown = notify(event.title, event.body)
@@ -232,10 +237,13 @@ export function startSystemNotifications(options: SystemNotifyOptions): () => vo
     }
   })()
 
-  return () => {
+  const stop = (): void => {
     stopped = true
+    runningAgent = undefined
     if (pollTimer !== undefined) clearTimeout(pollTimer)
     if (watchdog !== undefined) clearTimeout(watchdog)
     controller?.abort()
   }
+  runningAgent = stop
+  return stop
 }
