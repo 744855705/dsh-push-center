@@ -20,12 +20,17 @@
 前置条件：Node ≥ 20、DSH ≥ 0.2.3-alpha.2。仓库里不含构建产物（`lib/`、`client/client.js` 都被忽略），
 安装时由 `prepare` 脚本（`npm run build`）现场构建，所以首次安装会多花十几秒；装完需要重启 DSH。
 
+> **首次从 GitHub 安装会被 pnpm 拦一次**：git 来源的包默认不允许跑构建脚本。第一次 `dsh plugin add` 会失败并打印
+> 一条 `allowBuilds:` 键（形如 `dsh-push-center@https://codeload.github.com/.../tar.gz/<commit>`）。把这条键原样加到
+> `~/.dsh/profiles/web/pnpm-workspace.yaml` 的 `allowBuilds:` 下，再执行一次同样的命令即可。
+> 键里带着 commit 号，所以仓库每次有新提交，都要按新打印的键更新一次；不想反复改就用下面的本地 tgz 方式。
+
 也可以从本地包或本地源码目录安装：
 
     npm pack
     dsh plugin --profile web add /绝对路径/dsh-push-center-0.1.0.tgz
 
-    # 或直接从源码目录装（同样会跑 prepare 构建）
+    # 或直接从已构建的源码目录装（先在目录里 npm run build，否则没有 lib/）
     dsh plugin --profile web add /绝对路径/dsh-push-center
 
 安装后在「设置 → 推送」配置通道。首次使用微信需要扫码登录，并给机器人发一条消息，之后才能主动推送。
