@@ -262,8 +262,9 @@ export class Router {
   }
 
   async #pushToInteractive(message: OutboundMessage): Promise<void> {
-    const targets = this.#deps.registry.usable().filter((channel) => channel.interactive)
-    await Promise.all(targets.map((channel) => channel.send(message)))
+    // One prompt, one recipient: the automatic channel when it can take a reply,
+    // otherwise the default, otherwise the first channel that can.
+    await this.#deps.registry.sendPrompt(message)
   }
 
   async #receipt(inbound: InboundMessage, text: string): Promise<void> {

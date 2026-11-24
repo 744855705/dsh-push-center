@@ -61,7 +61,10 @@ export interface Config {
         readonly channels: readonly string[];
     };
     readonly push: {
+        /** Recipient for `push_message`; '' means the first usable channel. */
         readonly defaultChannel: string;
+        /** Recipient for every automatic message; '' follows `defaultChannel`. */
+        readonly autoChannel: string;
         readonly replyTimeoutMs: number;
     };
     readonly messages: {

@@ -15,6 +15,7 @@
   },
   "push": {
     "defaultChannel": "",
+    "autoChannel": "",
     "replyTimeoutMs": 120000
   },
   "messages": {

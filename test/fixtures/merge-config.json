@@ -22,6 +22,7 @@
       },
       "push": {
         "defaultChannel": "",
+        "autoChannel": "",
         "replyTimeoutMs": 120000
       },
       "messages": {
@@ -30,6 +31,8 @@
       },
       "system": {
         "enabled": false,
+        "backend": "auto",
+        "sound": true,
         "events": {
           "conversationCompleted": true,
           "conversationPaused": true,
@@ -37,9 +40,7 @@
           "authorizationRequired": true,
           "confirmationRequired": true,
           "todoProgress": true
-        },
-        "backend": "auto",
-        "sound": true
+        }
       },
       "channels": {
         "wechat": {
@@ -93,6 +94,7 @@
       },
       "push": {
         "defaultChannel": "",
+        "autoChannel": "",
         "replyTimeoutMs": 120000
       },
       "messages": {
@@ -101,6 +103,8 @@
       },
       "system": {
         "enabled": false,
+        "backend": "auto",
+        "sound": true,
         "events": {
           "conversationCompleted": true,
           "conversationPaused": true,
@@ -108,9 +112,7 @@
           "authorizationRequired": true,
           "confirmationRequired": true,
           "todoProgress": true
-        },
-        "backend": "auto",
-        "sound": true
+        }
       },
       "channels": {
         "wechat": {
@@ -170,6 +172,7 @@
       },
       "push": {
         "defaultChannel": "",
+        "autoChannel": "",
         "replyTimeoutMs": 120000
       },
       "messages": {
@@ -178,6 +181,8 @@
       },
       "system": {
         "enabled": false,
+        "backend": "auto",
+        "sound": false,
         "events": {
           "conversationCompleted": true,
           "conversationPaused": true,
@@ -185,9 +190,7 @@
           "authorizationRequired": true,
           "confirmationRequired": true,
           "todoProgress": true
-        },
-        "backend": "auto",
-        "sound": false
+        }
       },
       "channels": {
         "wechat": {
@@ -251,6 +254,7 @@
       },
       "push": {
         "defaultChannel": "",
+        "autoChannel": "",
         "replyTimeoutMs": 120000
       },
       "messages": {
@@ -259,6 +263,8 @@
       },
       "system": {
         "enabled": false,
+        "backend": "auto",
+        "sound": true,
         "events": {
           "conversationCompleted": true,
           "conversationPaused": true,
@@ -266,9 +272,7 @@
           "authorizationRequired": true,
           "confirmationRequired": true,
           "todoProgress": true
-        },
-        "backend": "auto",
-        "sound": true
+        }
       },
       "channels": {
         "wechat": {
@@ -333,6 +337,7 @@
       },
       "push": {
         "defaultChannel": "",
+        "autoChannel": "",
         "replyTimeoutMs": 5000
       },
       "messages": {
@@ -341,6 +346,8 @@
       },
       "system": {
         "enabled": false,
+        "backend": "auto",
+        "sound": true,
         "events": {
           "conversationCompleted": true,
           "conversationPaused": false,
@@ -348,9 +355,7 @@
           "authorizationRequired": true,
           "confirmationRequired": true,
           "todoProgress": true
-        },
-        "backend": "auto",
-        "sound": true
+        }
       },
       "channels": {
         "wechat": {

@@ -67,7 +67,10 @@ export interface Config {
   /** Channels event notifications go to; empty means the default channel. */
   readonly notify: { readonly channels: readonly string[] }
   readonly push: {
+    /** Recipient for `push_message`; '' means the first usable channel. */
     readonly defaultChannel: string
+    /** Recipient for every automatic message; '' follows `defaultChannel`. */
+    readonly autoChannel: string
     readonly replyTimeoutMs: number
   }
   readonly messages: {
@@ -106,6 +109,7 @@ const schema = z.object({
   }).default({ channels: [] }),
   push: z.object({
     defaultChannel: z.string().default('').description('Channel used when a push names none.'),
+    autoChannel: z.string().default('').description('Channel for automatic messages; empty follows the default channel.'),
     replyTimeoutMs: z.number().step(1).min(1000).max(300000).default(120000).description('Longest push_message reply wait.'),
   }).default({ defaultChannel: '', replyTimeoutMs: 120000 }),
   messages: z.object({

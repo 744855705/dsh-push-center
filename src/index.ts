@@ -51,7 +51,10 @@ export async function apply(rawCtx: unknown, patch: PluginConfig): Promise<void>
   // profile never builds an event.
   const rendererQueue = new RendererQueue()
   const http = createHttp()
-  const registry = new ChannelRegistry({ defaultChannelId: () => config.push.defaultChannel })
+  const registry = new ChannelRegistry({
+    defaultChannelId: () => config.push.defaultChannel,
+    autoChannelId: () => config.push.autoChannel,
+  })
   const bindings = new Bindings()
   const waiters = new Waiters()
   const host = new HostSessions({ get: (service) => ctx.get(service), logger })

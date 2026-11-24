@@ -160,6 +160,9 @@
       "testTitle": "🧪 DSH 系统通知测试",
       "testBody": "这条来自 DSH 推送中心；能看到就说明通知已打通。",
       "guidanceBrowser": "没收到就检查两处：浏览器地址栏左侧的站点设置里允许通知；系统设置里允许对应的浏览器（macOS：系统设置 → 通知 → 你的浏览器；Windows：设置 → 系统 → 通知）。"
-    }
+    },
+    "autoChannel.title": "自动推送通道",
+    "autoChannel.hint": "事件通知、审批、提问等自动消息只发到这个通道",
+    "autoChannel.follow": "跟随默认通道"
   }
 }

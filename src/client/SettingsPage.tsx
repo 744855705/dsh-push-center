@@ -268,6 +268,15 @@ export function SettingsPage(props: SettingsPageProps): JSX.Element {
   if (draft === null) return <div>{t('loading')}</div>
 
   const update = (next: Config): void => { setDraft(next) }
+
+  /** One option per enabled channel; both recipient selects render the same list. */
+  const enabledChannelOptions = (value: Config): JSX.Element => (
+    <>
+      {value.channels.wechat.enabled ? <option value="wechat">{t('wechat.title')}</option> : null}
+      {value.channels['wecom-aibot'].enabled ? <option value="wecom-aibot">{t('wecomAibot.title')}</option> : null}
+      {value.channels['wecom-webhook'].enabled ? <option value="wecom-webhook">{t('wecomWebhook.title')}</option> : null}
+    </>
+  )
   const patchTop = <K extends keyof Config>(key: K, value: Config[K]): void => update({ ...draft, [key]: value })
   const patchChannel = (id: keyof Config['channels'], key: string, value: unknown): void => {
     const channels = { ...draft.channels, [id]: { ...draft.channels[id], [key]: value } }
@@ -304,9 +313,15 @@ export function SettingsPage(props: SettingsPageProps): JSX.Element {
           <div style={S.label}>{t('defaultChannel.title')}</div>
           <select style={S.input} value={draft.push.defaultChannel} onChange={(event) => update({ ...draft, push: { ...draft.push, defaultChannel: event.target.value } })}>
             <option value="">{t('defaultChannel.auto')}</option>
-            {draft.channels.wechat.enabled ? <option value="wechat">{t('wechat.title')}</option> : null}
-            {draft.channels['wecom-aibot'].enabled ? <option value="wecom-aibot">{t('wecomAibot.title')}</option> : null}
-            {draft.channels['wecom-webhook'].enabled ? <option value="wecom-webhook">{t('wecomWebhook.title')}</option> : null}
+            {enabledChannelOptions(draft)}
+          </select>
+        </label>
+        <label style={S.field}>
+          <div style={S.label}>{t('autoChannel.title')}</div>
+          <div style={S.hint}>{t('autoChannel.hint')}</div>
+          <select style={S.input} value={draft.push.autoChannel} onChange={(event) => update({ ...draft, push: { ...draft.push, autoChannel: event.target.value } })}>
+            <option value="">{t('autoChannel.follow')}</option>
+            {enabledChannelOptions(draft)}
           </select>
         </label>
         <Field label={t('push.replyTimeout')} hint={t('push.replyTimeoutHint')} value={String(draft.push.replyTimeoutMs)} onChange={(value) => update({ ...draft, push: { ...draft.push, replyTimeoutMs: Number(value) || 120000 } })} />

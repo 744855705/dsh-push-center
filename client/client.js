@@ -3337,6 +3337,21 @@ function SettingsPage(props) {
 	const update = (next) => {
 		setDraft(next);
 	};
+	/** One option per enabled channel; both recipient selects render the same list. */
+	const enabledChannelOptions = (value) => /* @__PURE__ */ (0, react_jsx_runtime.jsxs)(react_jsx_runtime.Fragment, { children: [
+		value.channels.wechat.enabled ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)("option", {
+			value: "wechat",
+			children: t("wechat.title")
+		}) : null,
+		value.channels["wecom-aibot"].enabled ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)("option", {
+			value: "wecom-aibot",
+			children: t("wecomAibot.title")
+		}) : null,
+		value.channels["wecom-webhook"].enabled ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)("option", {
+			value: "wecom-webhook",
+			children: t("wecomWebhook.title")
+		}) : null
+	] });
 	const patchTop = (key, value) => update({
 		...draft,
 		[key]: value
@@ -3434,25 +3449,39 @@ function SettingsPage(props) {
 								defaultChannel: event.target.value
 							}
 						}),
-						children: [
-							/* @__PURE__ */ (0, react_jsx_runtime.jsx)("option", {
-								value: "",
-								children: t("defaultChannel.auto")
-							}),
-							draft.channels.wechat.enabled ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)("option", {
-								value: "wechat",
-								children: t("wechat.title")
-							}) : null,
-							draft.channels["wecom-aibot"].enabled ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)("option", {
-								value: "wecom-aibot",
-								children: t("wecomAibot.title")
-							}) : null,
-							draft.channels["wecom-webhook"].enabled ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)("option", {
-								value: "wecom-webhook",
-								children: t("wecomWebhook.title")
-							}) : null
-						]
+						children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("option", {
+							value: "",
+							children: t("defaultChannel.auto")
+						}), enabledChannelOptions(draft)]
 					})]
+				}),
+				/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("label", {
+					style: S.field,
+					children: [
+						/* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", {
+							style: S.label,
+							children: t("autoChannel.title")
+						}),
+						/* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", {
+							style: S.hint,
+							children: t("autoChannel.hint")
+						}),
+						/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("select", {
+							style: S.input,
+							value: draft.push.autoChannel,
+							onChange: (event) => update({
+								...draft,
+								push: {
+									...draft.push,
+									autoChannel: event.target.value
+								}
+							}),
+							children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("option", {
+								value: "",
+								children: t("autoChannel.follow")
+							}), enabledChannelOptions(draft)]
+						})
+					]
 				}),
 				/* @__PURE__ */ (0, react_jsx_runtime.jsx)(Field, {
 					label: t("push.replyTimeout"),
@@ -4004,7 +4033,10 @@ var ui$1 = {
 		"testTitle": "🧪 DSH 系统通知测试",
 		"testBody": "这条来自 DSH 推送中心；能看到就说明通知已打通。",
 		"guidanceBrowser": "没收到就检查两处：浏览器地址栏左侧的站点设置里允许通知；系统设置里允许对应的浏览器（macOS：系统设置 → 通知 → 你的浏览器；Windows：设置 → 系统 → 通知）。"
-	}
+	},
+	"autoChannel.title": "自动推送通道",
+	"autoChannel.hint": "事件通知、审批、提问等自动消息只发到这个通道",
+	"autoChannel.follow": "跟随默认通道"
 };
 // locale/en.json
 var ui = {
@@ -4163,7 +4195,10 @@ var ui = {
 		"testTitle": "🧪 DSH notification test",
 		"testBody": "From the DSH push center; seeing this means notifications work.",
 		"guidanceBrowser": "If nothing appeared, check two places: allow notifications for this site in the browser's address-bar controls, and allow that browser in the OS (macOS: System Settings → Notifications → your browser; Windows: Settings → System → Notifications)."
-	}
+	},
+	"autoChannel.title": "Automatic recipient",
+	"autoChannel.hint": "Event notifications, approvals and questions go to this channel only",
+	"autoChannel.follow": "Follow the default channel"
 };
 // src/client/index.ts
 /** Browser half: registers the Push settings section. */

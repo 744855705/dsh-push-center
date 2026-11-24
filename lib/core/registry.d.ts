@@ -4,6 +4,8 @@ import type { ChannelId, DeliveredResult, OutboundMessage, SendReport, TargetId 
 export interface RoutingPolicy {
     /** Configured default channel id, or '' when the first usable channel wins. */
     defaultChannelId(): string;
+    /** Configured automatic-message channel id, or '' to follow the default. */
+    autoChannelId?(): string;
 }
 /** Options for one registry send. */
 export interface RegistrySendOptions {
@@ -48,6 +50,18 @@ export declare class ChannelRegistry {
      * @returns what was delivered and why nothing was.
      */
     send(message: OutboundMessage, options?: RegistrySendOptions): Promise<SendReport>;
+    /**
+     * Send one automatic message (event notifications).
+     * @param message - the domain message.
+     * @returns what was delivered and why nothing was.
+     */
+    sendAutomatic(message: OutboundMessage): Promise<SendReport>;
+    /**
+     * Send one prompt that expects a reply (approvals, questions).
+     * @param message - the domain message.
+     * @returns what was delivered and why nothing was.
+     */
+    sendPrompt(message: OutboundMessage): Promise<SendReport>;
     /**
      * Send a plain text to one exact conversation (receipts, command answers).
      * @param channelId - the channel to answer on.

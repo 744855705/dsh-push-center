@@ -291,6 +291,58 @@ test('the system channel reports a platform without a notifier and never auto-se
   assert.equal(off.status.state, 'closed')
 })
 
+/** Fresh channels per case: a reused fake would carry its earlier sends along. */
+function makeChannels(): { chat: FakeChannel; aibot: FakeChannel; webhook: FakeChannel } {
+  return {
+    chat: new FakeChannel('wechat', { targets: [{ id: 'w', lastSeenAt: 1 }] }),
+    aibot: new FakeChannel('wecom-aibot', { targets: [{ id: 'a', lastSeenAt: 1 }] }),
+    webhook: new FakeChannel('wecom-webhook', { settings: { interactive: false }, targets: [{ id: 'h', lastSeenAt: 1 }] }),
+  }
+}
+
+test('automatic messages go to the automatic recipient, prompts only where a reply can land', async () => {
+  // '' follows the default channel.
+  {
+    const { chat, aibot, webhook } = makeChannels()
+    const registry = new ChannelRegistry({ defaultChannelId: () => 'wecom-aibot', autoChannelId: () => '' })
+    registry.reset([chat, aibot, webhook])
+    await registry.sendAutomatic({ kind: 'text', body: 'event' })
+    assert.equal(aibot.sent.length, 1, 'the default channel took the automatic message')
+    assert.equal(chat.sent.length, 0)
+    assert.equal(webhook.sent.length, 0)
+  }
+
+  // A named automatic channel wins over the default.
+  {
+    const { chat, aibot, webhook } = makeChannels()
+    const registry = new ChannelRegistry({ defaultChannelId: () => 'wecom-aibot', autoChannelId: () => 'wechat' })
+    registry.reset([chat, aibot, webhook])
+    await registry.sendAutomatic({ kind: 'text', body: 'event' })
+    assert.equal(chat.sent.length, 1, 'the automatic recipient took it')
+    assert.equal(aibot.sent.length, 0, 'and the default did not')
+  }
+
+  // A prompt never lands on a channel that cannot take a reply.
+  {
+    const { chat, webhook } = makeChannels()
+    const registry = new ChannelRegistry({ defaultChannelId: () => 'wecom-webhook', autoChannelId: () => 'wecom-webhook' })
+    registry.reset([chat, webhook])
+    await registry.sendPrompt({ kind: 'prompt', body: 'approve?' })
+    assert.equal(webhook.sent.length, 0, 'a webhook cannot answer')
+    assert.equal(chat.sent.length, 1, 'the fallback is the interactive channel')
+  }
+
+  // Exactly one interactive channel receives a prompt, never both.
+  {
+    const { chat, aibot } = makeChannels()
+    const registry = new ChannelRegistry({ defaultChannelId: () => 'wecom-aibot', autoChannelId: () => '' })
+    registry.reset([chat, aibot])
+    await registry.sendPrompt({ kind: 'prompt', body: 'approve?' })
+    assert.equal(aibot.sent.length, 1, 'the default channel takes the prompt')
+    assert.equal(chat.sent.length, 0, 'the other interactive channel stays quiet')
+  }
+})
+
 test('the system notifier is never picked as the automatic default', () => {
   const system = new FakeSystemChannel('system', { targets: [{ id: '', lastSeenAt: 1 }] })
   const chat = new FakeChannel('chat')

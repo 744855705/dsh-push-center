@@ -7,6 +7,8 @@ import type { ChannelId, DeliveredResult, OutboundMessage, SendReport, SkipReaso
 export interface RoutingPolicy {
   /** Configured default channel id, or '' when the first usable channel wins. */
   defaultChannelId(): string
+  /** Configured automatic-message channel id, or '' to follow the default. */
+  autoChannelId?(): string
 }
 
 /** Options for one registry send. */
@@ -94,6 +96,51 @@ export class ChannelRegistry {
       return primary.send(message, options.target === undefined ? {} : { target: options.target })
     }
     return { delivered: [], skipped: [{ channel: primary?.id ?? options.channel ?? 'default', reason: primary === undefined ? 'not-ready' : unusableReason(primary) }] }
+  }
+
+  /**
+   * Resolve the channel for one automatic message.
+   *
+   * One rule for every automatic path: the named channel, else the default, else
+   * the first usable one — narrowed to channels that can take a reply when the
+   * message is a prompt. Keeping it here means the notifier and the router never
+   * grow their own pick-last-resort logic.
+   * @param preferredId - the configured automatic channel ('' to follow the default).
+   * @param needsInteractive - whether the message expects a reply.
+   * @returns the channel to use, or undefined when nothing qualifies.
+   */
+  #resolve(preferredId: string, needsInteractive: boolean): PushChannel | undefined {
+    const accepts = (channel: PushChannel | undefined): channel is PushChannel =>
+      channel !== undefined && channel.usable && (!needsInteractive || channel.interactive)
+    if (preferredId.length > 0 && accepts(this.get(preferredId))) return this.get(preferredId)
+    const fallback = this.defaultChannel()
+    if (accepts(fallback)) return fallback
+    return this.usable().find((channel) => !needsInteractive || channel.interactive)
+  }
+
+  /**
+   * Send one automatic message (event notifications).
+   * @param message - the domain message.
+   * @returns what was delivered and why nothing was.
+   */
+  async sendAutomatic(message: OutboundMessage): Promise<SendReport> {
+    return this.#sendResolved(message, this.#resolve(this.#policy.autoChannelId?.() ?? '', false))
+  }
+
+  /**
+   * Send one prompt that expects a reply (approvals, questions).
+   * @param message - the domain message.
+   * @returns what was delivered and why nothing was.
+   */
+  async sendPrompt(message: OutboundMessage): Promise<SendReport> {
+    return this.#sendResolved(message, this.#resolve(this.#policy.autoChannelId?.() ?? '', true))
+  }
+
+  /** Send through an already resolved channel, reporting why nothing went out. */
+  async #sendResolved(message: OutboundMessage, channel: PushChannel | undefined): Promise<SendReport> {
+    if (channel === undefined) return { delivered: [], skipped: [{ channel: 'default', reason: 'not-ready' }] }
+    if (!channel.usable) return { delivered: [], skipped: [{ channel: channel.id, reason: unusableReason(channel) }] }
+    return channel.send(message)
   }
 
   /**

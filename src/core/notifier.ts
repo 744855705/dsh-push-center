@@ -152,7 +152,9 @@ export class Notifier {
 
   async #dispatch(message: OutboundMessage): Promise<SendReport> {
     const wanted = this.#deps.policy.channels()
-    if (wanted.length === 0) return this.#deps.registry.send(message)
+    // No explicit list: automatic delivery goes to the automatic recipient, which
+    // falls back to the default channel and then to the first usable one.
+    if (wanted.length === 0) return this.#deps.registry.sendAutomatic(message)
     const channels = wanted
       .map((id) => this.#deps.registry.get(id))
       .filter((channel): channel is NonNullable<typeof channel> => channel !== undefined && channel.usable)

@@ -160,6 +160,9 @@
       "testTitle": "🧪 DSH notification test",
       "testBody": "From the DSH push center; seeing this means notifications work.",
       "guidanceBrowser": "If nothing appeared, check two places: allow notifications for this site in the browser's address-bar controls, and allow that browser in the OS (macOS: System Settings → Notifications → your browser; Windows: Settings → System → Notifications)."
-    }
+    },
+    "autoChannel.title": "Automatic recipient",
+    "autoChannel.hint": "Event notifications, approvals and questions go to this channel only",
+    "autoChannel.follow": "Follow the default channel"
   }
 }
