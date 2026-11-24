@@ -4,7 +4,7 @@ import { EVENTS_PATH, RPC_CHANNEL, RPC_ENDPOINTS } from './rpc-contract.js'
 import { readDrain, shouldHandle } from '../core/renderer-queue.js'
 
 /** How the page is currently receiving events. */
-export type NotifyMode = 'off' | 'stream' | 'poll'
+export type NotifyMode = 'off' | 'denied' | 'stream' | 'poll'
 
 /** What the page can tell the settings UI about itself. */
 export interface NotifyState {
@@ -26,7 +26,7 @@ export interface SystemNotifyOptions {
   /** Called whenever the mode or permission changes. */
   readonly onChange?: (state: NotifyState) => void
   /** Notification override for tests; returns whether it actually showed. */
-  readonly notify?: (title: string, body: string) => boolean
+  readonly notify?: (title: string, body: string, tag?: string) => boolean
 }
 
 /** Where the cursor survives a reload. */
@@ -132,11 +132,14 @@ let cue: AudioContext | undefined
  * Show one notification; formatting is the host's job.
  * @returns whether a notification was actually raised, so the ledger can record it.
  */
-export function showNotification(title: string, body: string): boolean {
+export function showNotification(title: string, body: string, tag?: string): boolean {
   if (typeof Notification === 'undefined') return false
   if (Notification.permission !== 'granted') return false
+  // `tag` is the idempotency key: the OS replaces a notification that carries the
+  // same tag instead of stacking a second one, so two pages racing on one event
+  // still leave a single notification behind.
   // eslint-disable-next-line no-new -- the constructor both posts and owns the toast
-  new Notification(title, { body, silent: false })
+  new Notification(title, { body, silent: false, ...(tag === undefined ? {} : { tag }) })
   if (cueEnabled) playCue()
   return true
 }
@@ -170,6 +173,19 @@ function writeCursor(id: string): void {
 /** One agent per page: a second start would double every notification. */
 let runningAgent: (() => void) | undefined
 
+/** Called when the page gains permission after the agent gave up waiting. */
+let wake: (() => void) | undefined
+
+/**
+ * Tell the agent that notification permission just changed.
+ *
+ * A page without permission deliberately takes no events, so the settings page
+ * calls this once the person grants it.
+ */
+export function wakeSystemNotifications(): void {
+  wake?.()
+}
+
 export function startSystemNotifications(options: SystemNotifyOptions): () => void {
   if (runningAgent !== undefined) return runningAgent
   const notify = options.notify ?? showNotification
@@ -195,7 +211,7 @@ export function startSystemNotifications(options: SystemNotifyOptions): () => vo
     if (!shouldHandle(event.id, cursor, readCursor())) return
     cursor = event.id
     writeCursor(event.id)
-    const shown = notify(event.title, event.body)
+    const shown = notify(event.title, event.body, event.id)
     // The page owns the notification, so it also owns the delivery record: a
     // denied permission must be visible in the host ledger, not silently lost.
     void options.call(RPC_CHANNEL, RPC_ENDPOINTS.systemDelivered, {
@@ -280,7 +296,7 @@ export function startSystemNotifications(options: SystemNotifyOptions): () => vo
     if (!stopped) startPolling('stream closed')
   }
 
-  void (async () => {
+  const begin = async (): Promise<void> => {
     const config = await options.call(RPC_CHANNEL, RPC_ENDPOINTS.configGet, {})
     if (stopped) return
     if (!config.ok) {
@@ -298,16 +314,28 @@ export function startSystemNotifications(options: SystemNotifyOptions): () => vo
       setMode('off', 'this page has no Notification API')
       return
     }
+    if (permissionOf() !== 'granted') {
+      // Taking an event would consume it for every other page and then drop it.
+      setMode('denied')
+      wake = () => {
+        if (stopped || permissionOf() !== 'granted') return
+        wake = undefined
+        void begin()
+      }
+      return
+    }
     try {
       await startStream()
     } catch (error) {
       if (!stopped) startPolling(error instanceof Error ? error.message : String(error))
     }
-  })()
+  }
+  void begin()
 
   const stop = (): void => {
     stopped = true
     runningAgent = undefined
+    wake = undefined
     if (pollTimer !== undefined) clearTimeout(pollTimer)
     if (watchdog !== undefined) clearTimeout(watchdog)
     controller?.abort()

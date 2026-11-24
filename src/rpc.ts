@@ -14,6 +14,7 @@ export const RPC_ENDPOINTS = Object.freeze({
   channelTest: 'channel.test',
   systemProbe: 'system.probe',
   systemPoll: 'system.poll',
+  systemTouch: 'system.touch',
   systemDelivered: 'system.delivered',
 })
 
@@ -30,8 +31,10 @@ export interface RendererEventLike {
 export interface SystemHandlers {
   /** Whether notifications can be raised here, and how. */
   probe(): unknown
-  /** Drain events after a cursor; also reports the page as live. */
+  /** Take every unclaimed event; also reports the page as live. */
   poll(since: string | undefined): unknown
+  /** Report the page as live without taking anything (stream keep-alive). */
+  touch(): void
   /** Record what the page did with one event (it owns the notification). */
   delivered(input: { id: string; shown: boolean; type?: string }): unknown
   /** Follow events live; returns the unsubscribe function. */
@@ -130,6 +133,7 @@ const ENDPOINTS: Readonly<Record<string, Endpoint>> = {
   [RPC_ENDPOINTS.wechatRelogin]: { run: (handlers) => handlers.reloginWechat() },
   [RPC_ENDPOINTS.systemProbe]: { run: (handlers) => handlers.system.probe() },
   [RPC_ENDPOINTS.systemPoll]: { run: (handlers, payload) => handlers.system.poll(readSince(payload)) },
+  [RPC_ENDPOINTS.systemTouch]: { run: (handlers) => { handlers.system.touch(); return { ok: true } } },
   [RPC_ENDPOINTS.systemDelivered]: {
     validate: (payload) => (isRecord(payload) && typeof payload.id === 'string' && typeof payload.shown === 'boolean'
       ? null
@@ -215,7 +219,8 @@ function serveEvents(req: IncomingMessage, res: ServerResponse, system: SystemHa
     res.write('data: ' + JSON.stringify(event) + '\n\n')
   })
   const heartbeat = setInterval(() => {
-    system.poll(undefined)
+    // A keep-alive must never consume: it only says "this page is still here".
+    system.touch()
     res.write(': ping\n\n')
   }, STREAM_HEARTBEAT_MS)
   const close = (): void => {

@@ -2757,6 +2757,7 @@ const RPC_ENDPOINTS = Object.freeze({
 	channelTest: "channel.test",
 	systemProbe: "system.probe",
 	systemPoll: "system.poll",
+	systemTouch: "system.touch",
 	systemDelivered: "system.delivered"
 });
 // src/core/renderer-queue.ts
@@ -2876,12 +2877,13 @@ let cue;
 * Show one notification; formatting is the host's job.
 * @returns whether a notification was actually raised, so the ledger can record it.
 */
-function showNotification(title, body) {
+function showNotification(title, body, tag) {
 	if (typeof Notification === "undefined") return false;
 	if (Notification.permission !== "granted") return false;
 	new Notification(title, {
 		body,
-		silent: false
+		silent: false,
+		...tag === void 0 ? {} : { tag }
 	});
 	if (cueEnabled) playCue();
 	return true;
@@ -2910,6 +2912,17 @@ function writeCursor(id) {
 */
 /** One agent per page: a second start would double every notification. */
 let runningAgent;
+/** Called when the page gains permission after the agent gave up waiting. */
+let wake;
+/**
+* Tell the agent that notification permission just changed.
+*
+* A page without permission deliberately takes no events, so the settings page
+* calls this once the person grants it.
+*/
+function wakeSystemNotifications() {
+	wake?.();
+}
 function startSystemNotifications(options) {
 	if (runningAgent !== void 0) return runningAgent;
 	const notify = options.notify ?? showNotification;
@@ -2932,7 +2945,7 @@ function startSystemNotifications(options) {
 		if (!shouldHandle(event.id, cursor, readCursor())) return;
 		cursor = event.id;
 		writeCursor(event.id);
-		const shown = notify(event.title, event.body);
+		const shown = notify(event.title, event.body, event.id);
 		options.call(RPC_CHANNEL, RPC_ENDPOINTS.systemDelivered, {
 			id: event.id,
 			shown,
@@ -3014,7 +3027,7 @@ function startSystemNotifications(options) {
 		}
 		if (!stopped) startPolling("stream closed");
 	};
-	(async () => {
+	const begin = async () => {
 		const config = await options.call(RPC_CHANNEL, RPC_ENDPOINTS.configGet, {});
 		if (stopped) return;
 		if (!config.ok) {
@@ -3031,15 +3044,26 @@ function startSystemNotifications(options) {
 			setMode("off", "this page has no Notification API");
 			return;
 		}
+		if (permissionOf() !== "granted") {
+			setMode("denied");
+			wake = () => {
+				if (stopped || permissionOf() !== "granted") return;
+				wake = void 0;
+				begin();
+			};
+			return;
+		}
 		try {
 			await startStream();
 		} catch (error) {
 			if (!stopped) startPolling(error instanceof Error ? error.message : String(error));
 		}
-	})();
+	};
+	begin();
 	const stop = () => {
 		stopped = true;
 		runningAgent = void 0;
+		wake = void 0;
 		if (pollTimer !== void 0) clearTimeout(pollTimer);
 		if (watchdog !== void 0) clearTimeout(watchdog);
 		controller?.abort();
@@ -3049,6 +3073,8 @@ function startSystemNotifications(options) {
 }
 // src/client/SettingsPage.tsx
 /** The Push settings page: a channel menu on the left, one topic on the right. */
+/** A stable tag, so repeated test pushes refresh one notification instead of stacking. */
+const TEST_TAG = "dsh-push-center:test";
 /**
 * Menu entries: one topic per entry, icon above the label.
 *
@@ -3687,18 +3713,20 @@ function SettingsPage(props) {
 	const askPermission = async () => {
 		const next = await requestPermission();
 		setPermission(next);
+		wakeSystemNotifications();
 		say("system.permission", next === "granted" ? t("system.permissionGranted") : t("system.guidanceBrowser"));
 	};
 	const sendTestNotification = async () => {
 		if (permission !== "granted") {
 			const next = await requestPermission();
 			setPermission(next);
+			wakeSystemNotifications();
 			if (next !== "granted") {
 				say("system.test", t("system.guidanceBrowser"));
 				return;
 			}
 		}
-		const shown = showNotification(t("system.testTitle"), t("system.testBody") + " " + (/* @__PURE__ */ new Date()).toLocaleTimeString());
+		const shown = showNotification(t("system.testTitle"), t("system.testBody") + " " + (/* @__PURE__ */ new Date()).toLocaleTimeString(), TEST_TAG);
 		say("system.test", shown ? t("system.testSent") : t("system.guidanceBrowser"));
 	};
 	const systemSection = /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("section", {

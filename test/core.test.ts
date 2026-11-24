@@ -338,11 +338,11 @@ test('system notifications follow their own switches, not the chat ones', async 
 
   await notifier.emit({ type: 'conversationCompleted', title: 'done', body: 'body' })
   assert.equal(chat.sent.length, 1)
-  // A page that has no cursor yet still receives what is queued.
-  const drained = queue.since(undefined)
+  // The first page to ask takes the event; the second one gets nothing.
+  const drained = queue.claim(undefined)
   assert.equal(drained.events.length, 1)
   assert.equal(drained.events[0]?.title, 'done')
-  assert.equal(queue.since('').events.length, 1, 'an empty cursor behaves like none')
+  assert.deepEqual(queue.claim('').events, [], 'an event is handed out at most once')
 
   await notifier.emit({ type: 'todoProgress', title: 'progress', body: 'body' })
   assert.equal(chat.sent.length, 2, 'chat still receives the event')
@@ -384,9 +384,11 @@ test('an event reaches an open page through the queue, never the OS command', as
 
   await notifier.emit({ type: 'conversationCompleted', title: 'done', body: 'body' })
   assert.deepEqual(enqueued, ['done'])
-  const cursor = queue.since(undefined).cursor
+  const taken = queue.claim(undefined)
+  assert.deepEqual(taken.events.map((event) => event.title), ['done'], 'the open page takes it')
+  assert.deepEqual(queue.claim(undefined).events, [], 'and nobody else can')
   const first = queue.enqueue({ type: 'todoProgress', title: 'second', body: 'b' })
-  assert.equal(queue.since(cursor).events.at(-1)?.id, first.id)
+  assert.equal(queue.claim('').events.at(-1)?.id, first.id)
   assert.equal(system.sent.length, 0, 'an open page means no OS command runs')
 })
 
@@ -479,7 +481,7 @@ test('the notification route prefers the page, then the OS, and never falls back
   assert.equal(chooseRoute({ backend: 'host', platform: 'win32', heartbeatAgeMs: 0 }), 'host')
 })
 
-test('the renderer queue drains by cursor and expires what nobody collected', () => {
+test('the renderer queue hands each event out exactly once and expires the rest', () => {
   let now = 1_000
   const queue = new RendererQueue(() => now)
   assert.equal(queue.heartbeatAgeMs(), Number.POSITIVE_INFINITY)
@@ -489,44 +491,53 @@ test('the renderer queue drains by cursor and expires what nobody collected', ()
   assert.equal(queue.pageOpen, true)
 
   const first = queue.enqueue({ type: 'conversationCompleted', title: 'a', body: 'a' })
-  const opened = queue.since(undefined)
-  assert.equal(opened.events.length, 1, 'a page that never saw an id still gets the queued event')
-  assert.equal(opened.events[0]?.id, first.id)
-  assert.equal(opened.cursor, first.id)
+  assert.equal(queue.pending(), 1)
+  const taken = queue.claim(undefined)
+  assert.equal(taken.events.length, 1, 'the queued event is delivered')
+  assert.equal(taken.events[0]?.id, first.id)
+  assert.equal(taken.cursor, first.id)
+  assert.equal(queue.pending(), 0, 'a claimed event is no longer pending')
+  assert.deepEqual(queue.claim(undefined).events, [], 'a second page gets nothing')
 
   const second = queue.enqueue({ type: 'conversationCompleted', title: 'b', body: 'b' })
-  assert.deepEqual(queue.since(first.id).events.map((event) => event.id), [second.id])
+  assert.deepEqual(queue.claim(first.id).events.map((event) => event.id), [second.id])
+  assert.deepEqual(queue.claim(second.id).events, [])
 
+  const third = queue.enqueue({ type: 'conversationCompleted', title: 'c', body: 'c' })
   now += 61_000
-  assert.equal(queue.since(second.id).events.length, 0, 'events past their TTL are gone')
+  assert.deepEqual(queue.claim(third.id).events, [], 'events past their TTL are gone')
+  assert.equal(queue.pending(), 0)
   assert.equal(queue.heartbeatAgeMs() > 10_000, true)
 })
 
-test('an unknown cursor never swallows what is already queued', () => {
-  let now = 1_000
-  const queue = new RendererQueue(() => now)
-  const first = queue.enqueue({ type: 'conversationCompleted', title: 'a', body: 'a' })
+test('a live stream takes the event before any polling page can claim it', () => {
+  const queue = new RendererQueue(() => 1_000)
+  const streamed: string[] = []
+  const unsubscribe = queue.subscribe((event) => streamed.push(event.id))
+  const event = queue.enqueue({ type: 'conversationCompleted', title: 'a', body: 'a' })
+  assert.deepEqual(streamed, [event.id], 'the stream consumer received it')
+  assert.deepEqual(queue.claim(undefined).events, [], 'and a polling page did not')
+  assert.equal(queue.pending(), 0)
+  unsubscribe()
+  const after = queue.enqueue({ type: 'conversationCompleted', title: 'b', body: 'b' })
+  assert.deepEqual(queue.claim(undefined).events.map((item) => item.id), [after.id], 'without a stream the queue takes over')
+})
 
-  // A host restart changes every id; the page's stored cursor no longer exists.
-  const restarted = queue.since('1795000000000-9')
-  assert.equal(restarted.events.length, 1, 'the queued event is still delivered')
-  assert.equal(restarted.events[0]?.id, first.id)
-  assert.equal(restarted.cursor, first.id)
-
-  // A known cursor only returns what came after it.
-  const second = queue.enqueue({ type: 'conversationCompleted', title: 'b', body: 'b' })
-  assert.deepEqual(queue.since(first.id).events.map((event) => event.id), [second.id])
-  assert.deepEqual(queue.since(second.id).events, [])
-
-  // Expired events are not resurrected for an unknown cursor either.
-  now += 61_000
-  assert.deepEqual(queue.since('gone').events, [])
+test('a keep-alive and a probe never consume an event', () => {
+  const queue = new RendererQueue(() => 1_000)
+  queue.enqueue({ type: 'conversationCompleted', title: 'a', body: 'a' })
+  queue.touch()
+  assert.equal(queue.pending(), 1)
+  assert.equal(queue.pending(), 1, 'counting twice still leaves it queued')
+  assert.equal(queue.claim(undefined).events.length, 1)
 })
 
 test('a single-event drain keeps the event and still advances the cursor', () => {
   const event = { id: 'e5', type: 'conversationCompleted', title: 'done', body: 'b', at: 1 }
   // The host reports the newest id as the cursor; the page must handle the event
   // anyway, which is why ordering matters: handle() skips an id equal to the cursor.
+  // (readDrain stays pure so this ordering is covered even though the queue now
+  // hands events out once.)
   const drained = readDrain({ events: [event], cursor: 'e5' }, 'e4')
   assert.equal(drained.events.length, 1, 'the only event in the response is not swallowed')
   assert.equal(drained.events[0]?.id, 'e5')

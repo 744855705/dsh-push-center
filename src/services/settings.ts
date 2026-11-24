@@ -84,13 +84,16 @@ export function createSettingsHandlers(deps: SettingsDeps): RpcHandlers {
           platform,
           hostSupported: hostNotifierAvailable(platform),
           pageOpen: deps.queue.pageOpen,
-          queued: deps.queue.since(undefined).events.length,
+          queued: deps.queue.pending(),
         }
       },
       poll: (since) => {
         deps.queue.touch()
-        const drained = deps.queue.since(since)
-        return { events: drained.events, cursor: drained.cursor, pageOpen: true }
+        const claimed = deps.queue.claim(since)
+        return { events: claimed.events, cursor: claimed.cursor, pageOpen: true }
+      },
+      touch: () => {
+        deps.queue.touch()
       },
       delivered: (input) => {
         deps.deliveries.recordRenderer(input.shown, input.type)

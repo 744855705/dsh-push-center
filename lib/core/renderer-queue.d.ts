@@ -59,11 +59,12 @@ export interface RouteInput {
  */
 export declare function chooseRoute(input: RouteInput): NotificationRoute;
 /**
- * A bounded queue of system notifications for the open page.
+ * A bounded queue of system notifications for the page.
  *
- * The queue is the only bridge to the page: a long-lived stream drains it live,
- * a polling page drains it with a cursor, and an event nobody collects expires.
- * Nothing here runs unless a notification is raised or a page asks.
+ * Delivery is **at most once**: whoever claims an event takes it off the queue,
+ * so a second page asking at the same moment gets nothing. That is what makes
+ * several open pages safe without restricting any of them. A live stream (SSE)
+ * is served first; polling pages pick up whatever it did not take.
  */
 export declare class RendererQueue {
     #private;
@@ -76,10 +77,11 @@ export declare class RendererQueue {
     /** Whether an open page is owed events right now. */
     get pageOpen(): boolean;
     /**
-     * Queue one event for the page, dropping anything past its TTL.
-     * Live subscribers receive it immediately.
+     * Queue one event for a page, dropping anything past its TTL.
+     *
+     * A live subscriber takes it immediately — it is the consumer for the moment.
      * @param input - the event to hand over.
-     * @returns the queued event with its id.
+     * @returns the event with its id.
      */
     enqueue(input: {
         type: NotifyEventType;
@@ -87,18 +89,22 @@ export declare class RendererQueue {
         body: string;
     }): RendererEvent;
     /**
-     * Drain everything after a page's cursor.
-     * An unknown or absent cursor starts from now, so a reload never replays history.
+     * Take every unclaimed event.
+     *
+     * Each event is handed out exactly once; the cursor is reported back for the
+     * page's own de-duplication but no longer selects what is returned.
      * @param cursor - the last event id the page handled.
-     * @returns the new events and the cursor to send next time.
+     * @returns the events this call claimed, and the cursor to send next time.
      */
-    since(cursor: string | undefined): {
+    claim(cursor: string | undefined): {
         events: readonly RendererEvent[];
         cursor: string;
     };
+    /** How many events are still waiting to be taken. */
+    pending(): number;
     /**
      * Follow events live (the SSE path).
-     * @param listener - called for each new event.
+     * @param listener - called for each new event; only the first subscriber receives.
      * @returns the unsubscribe function.
      */
     subscribe(listener: (event: RendererEvent) => void): () => void;

@@ -5,7 +5,10 @@ import type { Config } from '../config.js'
 import type { RpcCall, RpcResult } from './index.js'
 import { Mark, type MarkName } from './icons.js'
 import { Field, ListField, S, Section, Toggle } from './components.js'
-import { permissionOf, requestPermission, setNotificationSound, showNotification } from './system-notify.js'
+import { permissionOf, requestPermission, setNotificationSound, showNotification, wakeSystemNotifications } from './system-notify.js'
+
+/** A stable tag, so repeated test pushes refresh one notification instead of stacking. */
+const TEST_TAG = 'dsh-push-center:test'
 
 /** One channel row from the status endpoint. */
 interface ChannelState {
@@ -407,6 +410,8 @@ export function SettingsPage(props: SettingsPageProps): JSX.Element {
   const askPermission = async (): Promise<void> => {
     const next = await requestPermission()
     setPermission(next)
+    // The agent stopped taking events while permission was missing; let it retry.
+    wakeSystemNotifications()
     say('system.permission', next === 'granted' ? t('system.permissionGranted') : t('system.guidanceBrowser'))
   }
 
@@ -414,12 +419,13 @@ export function SettingsPage(props: SettingsPageProps): JSX.Element {
     if (permission !== 'granted') {
       const next = await requestPermission()
       setPermission(next)
+      wakeSystemNotifications()
       if (next !== 'granted') {
         say('system.test', t('system.guidanceBrowser'))
         return
       }
     }
-    const shown = showNotification(t('system.testTitle'), t('system.testBody') + ' ' + new Date().toLocaleTimeString())
+    const shown = showNotification(t('system.testTitle'), t('system.testBody') + ' ' + new Date().toLocaleTimeString(), TEST_TAG)
     say('system.test', shown ? t('system.testSent') : t('system.guidanceBrowser'))
   }
 

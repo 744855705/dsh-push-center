@@ -13,6 +13,7 @@ export declare const RPC_ENDPOINTS: Readonly<{
     channelTest: "channel.test";
     systemProbe: "system.probe";
     systemPoll: "system.poll";
+    systemTouch: "system.touch";
     systemDelivered: "system.delivered";
 }>;
 /** One event handed to the page. */
@@ -27,8 +28,10 @@ export interface RendererEventLike {
 export interface SystemHandlers {
     /** Whether notifications can be raised here, and how. */
     probe(): unknown;
-    /** Drain events after a cursor; also reports the page as live. */
+    /** Take every unclaimed event; also reports the page as live. */
     poll(since: string | undefined): unknown;
+    /** Report the page as live without taking anything (stream keep-alive). */
+    touch(): void;
     /** Record what the page did with one event (it owns the notification). */
     delivered(input: {
         id: string;
