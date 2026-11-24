@@ -1,10 +1,9 @@
 # Dependencies (install with npm ci)
 /node_modules/
 
-# Build output: npm run build writes lib/ (tsc) and client/ (tsdown + wrap-client).
-# Leading slash matters: without it, "client/" would also swallow src/client/.
-/lib/
-/client/
+# Build output is committed on purpose: `github:` installs run no build scripts
+# (pnpm blocks them unless allowBuilds is edited), so lib/ and client/ must be
+# in the repository. Rebuild with `npm run build` before committing source.
 *.tgz
 *.tsbuildinfo
 

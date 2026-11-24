@@ -51,7 +51,7 @@
     "lint": "oxlint --deny-warnings src client scripts test",
     "test": "npm run build:host && node --test test/*.test.ts",
     "check": "npm run typecheck && npm run lint && npm run test",
-    "prepare": "npm run build"
+    "prepack": "npm run build"
   },
   "keywords": [
     "dsh",

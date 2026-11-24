@@ -17,20 +17,15 @@
 
     dsh plugin --profile web add github:744855705/dsh-push-center
 
-前置条件：Node ≥ 20、DSH ≥ 0.2.3-alpha.2。仓库里不含构建产物（`lib/`、`client/client.js` 都被忽略），
-安装时由 `prepare` 脚本（`npm run build`）现场构建，所以首次安装会多花十几秒；装完需要重启 DSH。
-
-> **首次从 GitHub 安装会被 pnpm 拦一次**：git 来源的包默认不允许跑构建脚本。第一次 `dsh plugin add` 会失败并打印
-> 一条 `allowBuilds:` 键（形如 `dsh-push-center@https://codeload.github.com/.../tar.gz/<commit>`）。把这条键原样加到
-> `~/.dsh/profiles/web/pnpm-workspace.yaml` 的 `allowBuilds:` 下，再执行一次同样的命令即可。
-> 键里带着 commit 号，所以仓库每次有新提交，都要按新打印的键更新一次；不想反复改就用下面的本地 tgz 方式。
+前置条件：Node ≥ 20、DSH ≥ 0.2.3-alpha.2。仓库里**直接包含构建产物**（`lib/`、`client/client.js`），
+安装过程不跑任何构建脚本，因此不需要改 pnpm 的 `allowBuilds`；装完重启 DSH 即可。
 
 也可以从本地包或本地源码目录安装：
 
     npm pack
     dsh plugin --profile web add /绝对路径/dsh-push-center-0.1.0.tgz
 
-    # 或直接从已构建的源码目录装（先在目录里 npm run build，否则没有 lib/）
+    # 或直接从源码目录装（该目录的 lib/ 与 client/ 必须在）
     dsh plugin --profile web add /绝对路径/dsh-push-center
 
 安装后在「设置 → 推送」配置通道。首次使用微信需要扫码登录，并给机器人发一条消息，之后才能主动推送。
@@ -68,9 +63,9 @@ expectReply 会把读者的一条回复作为工具返回值（单目标限定�
 
 ## 开发
 
-    npm install       # 会跑 prepare，自动构建一次
+    npm install       # 只装依赖，不构建
     npm run check     # typecheck + lint + unit tests
-    npm run build     # lib/ + client/client.js
+    npm run build     # lib/ + client/client.js —— 提交前必须跑，因为产物也在仓库里
 
 架构在源码里：`src/core/`（领域与端口：types / ports / channel / registry / router / notifier / delivery-log）、
 `src/channels/`（每渠道只做协议与渲染）、`src/hooks/`（DSH 接缝：会话事件、审批提问、会话摘要）、
