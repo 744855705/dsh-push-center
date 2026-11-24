@@ -3,6 +3,8 @@ import type { IncomingMessage, ServerResponse } from 'node:http'
 
 /** Endpoint names shared with the client bundle. */
 export const RPC_CHANNEL = '/dsh-push-center'
+/** Live event stream a page may hold open instead of polling. */
+export const EVENTS_PATH = RPC_CHANNEL + '/events'
 export const RPC_ENDPOINTS = Object.freeze({
   configGet: 'config.get',
   configSet: 'config.set',
@@ -10,7 +12,31 @@ export const RPC_ENDPOINTS = Object.freeze({
   wechatRelogin: 'wechat.relogin',
   wecomAibotQrStart: 'wecom-aibot.qr-start',
   channelTest: 'channel.test',
+  systemProbe: 'system.probe',
+  systemPoll: 'system.poll',
+  systemVerify: 'system.verify',
 })
+
+/** One event handed to the page. */
+export interface RendererEventLike {
+  readonly id: string
+  readonly type: string
+  readonly title: string
+  readonly body: string
+  readonly at: number
+}
+
+/** System-notification operations the page drives. */
+export interface SystemHandlers {
+  /** Whether notifications can be raised here, and how. */
+  probe(): unknown
+  /** Drain events after a cursor; also reports the page as live. */
+  poll(since: string | undefined): unknown
+  /** Persist the self-check the person confirmed. */
+  verify(input: { ok: boolean; app: 'web' | 'desktop'; platform: string }): Promise<unknown>
+  /** Follow events live; returns the unsubscribe function. */
+  subscribe(listener: (event: RendererEventLike) => void): () => void
+}
 
 /** What the route exposes. */
 export interface RpcHandlers {
@@ -21,6 +47,8 @@ export interface RpcHandlers {
   startWecomAibotQr(): Promise<unknown>
   /** Send one test message to a channel and report what happened. */
   testChannel(channelId: string): Promise<unknown>
+  /** System notification state; the page owns the permission, the host owns the queue. */
+  system: SystemHandlers
 }
 
 /** The minimal web server surface this route needs. */
@@ -66,6 +94,13 @@ async function readBody(req: IncomingMessage): Promise<unknown> {
  * @param handlers - the settings operations.
  */
 async function serve(req: IncomingMessage, res: ServerResponse, handlers: RpcHandlers): Promise<void> {
+  if (req.method === 'GET') {
+    const pathname = (req.url ?? '').split('?', 1)[0] ?? ''
+    if (pathname.endsWith('/events')) {
+      serveEvents(req, res, handlers.system)
+      return
+    }
+  }
   if (req.method !== 'POST') {
     res.writeHead(404)
     res.end('not found')
@@ -120,10 +155,67 @@ async function serve(req: IncomingMessage, res: ServerResponse, handlers: RpcHan
       respond(res, rpcId, { ok: true, value: await handlers.reloginWechat() })
       return
     }
+    if (method === RPC_ENDPOINTS.systemProbe) {
+      respond(res, rpcId, { ok: true, value: handlers.system.probe() })
+      return
+    }
+    if (method === RPC_ENDPOINTS.systemPoll) {
+      const since = isRecord(payload) && typeof payload.since === 'string' ? payload.since : undefined
+      respond(res, rpcId, { ok: true, value: handlers.system.poll(since) })
+      return
+    }
+    if (method === RPC_ENDPOINTS.systemVerify) {
+      if (!isRecord(payload) || typeof payload.ok !== 'boolean' || typeof payload.platform !== 'string'
+        || (payload.app !== 'web' && payload.app !== 'desktop')) {
+        respond(res, rpcId, { ok: false, error: { message: 'system.verify expects { ok, app, platform }' } })
+        return
+      }
+      respond(res, rpcId, {
+        ok: true,
+        value: await handlers.system.verify({ ok: payload.ok, app: payload.app, platform: payload.platform }),
+      })
+      return
+    }
     respond(res, rpcId, { ok: false, error: { message: 'unknown endpoint: ' + method } })
   } catch (error) {
     respond(res, rpcId, { ok: false, error: { message: error instanceof Error ? error.message : String(error) } })
   }
+}
+
+/** Milliseconds between keep-alive comments on an idle stream. */
+const STREAM_HEARTBEAT_MS = 15_000
+
+/**
+ * Hold one event stream open for a page.
+ *
+ * The web server hands the handler the raw response on purpose ("may hold the
+ * response open, e.g. SSE"), and its compression filter skips text/event-stream,
+ * so writes reach the page as they happen.
+ * @param req - the GET request.
+ * @param res - the response this handler owns.
+ * @param system - the queue and probe.
+ */
+function serveEvents(req: IncomingMessage, res: ServerResponse, system: SystemHandlers): void {
+  res.writeHead(200, {
+    'content-type': 'text/event-stream',
+    'cache-control': 'no-cache, no-transform',
+    connection: 'keep-alive',
+    'x-accel-buffering': 'no',
+  })
+  res.write(': connected\n\n')
+  const unsubscribe = system.subscribe((event) => {
+    res.write('data: ' + JSON.stringify(event) + '\n\n')
+  })
+  const heartbeat = setInterval(() => {
+    system.poll(undefined)
+    res.write(': ping\n\n')
+  }, STREAM_HEARTBEAT_MS)
+  const close = (): void => {
+    clearInterval(heartbeat)
+    unsubscribe()
+  }
+  req.on('close', close)
+  res.on('close', close)
 }
 
 /**

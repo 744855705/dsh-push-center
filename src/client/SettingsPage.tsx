@@ -4,6 +4,7 @@ import QRCode from 'qrcode'
 import type { Config } from '../config.js'
 import type { RpcCall, RpcResult } from './index.js'
 import { Mark, type MarkName } from './icons.js'
+import { permissionOf, requestPermission, showNotification } from './system-notify.js'
 
 /** One channel row from the status endpoint. */
 interface ChannelState {
@@ -25,11 +26,31 @@ interface DeliveryRow {
   readonly message?: string
 }
 
+/** One self-check the person confirmed. */
+interface SystemVerifyRow {
+  readonly at: number
+  readonly ok: boolean
+  readonly backend: string
+  readonly platform: string
+  readonly app: string
+}
+
+/** System-notification state the host reports. */
+interface SystemStatus {
+  readonly enabled: boolean
+  readonly backend: string
+  readonly platform: string
+  readonly pageOpen: boolean
+  readonly hostSupported: boolean
+  readonly verify: SystemVerifyRow | null
+}
+
 /** Status endpoint payload. */
 interface StatusPayload {
   readonly defaultChannel: string
   readonly channels: ReadonlyArray<ChannelState>
   readonly deliveries?: ReadonlyArray<DeliveryRow>
+  readonly system?: SystemStatus
   readonly association?: { readonly phase: string; readonly url?: string; readonly errorKey?: string; readonly completedAt?: number }
   readonly tool?: { readonly registered: boolean; readonly error?: string }
   readonly revision?: number
@@ -40,7 +61,15 @@ export interface SettingsPageProps {
   readonly t: (key: string) => string
   readonly rpcCall: RpcCall
   readonly channel: string
-  readonly endpoints: { readonly configGet: string; readonly configSet: string; readonly status: string; readonly wechatRelogin: string; readonly wecomAibotQrStart: string; readonly channelTest: string }
+  readonly endpoints: {
+    readonly configGet: string
+    readonly configSet: string
+    readonly status: string
+    readonly wechatRelogin: string
+    readonly wecomAibotQrStart: string
+    readonly channelTest: string
+    readonly systemVerify: string
+  }
 }
 
 /**
@@ -161,6 +190,8 @@ export function SettingsPage(props: SettingsPageProps): JSX.Element {
   const [draft, setDraft] = useState<Config | null>(null)
   const [status, setStatus] = useState<StatusPayload | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [permission, setPermission] = useState<NotificationPermission | 'unsupported'>(() => permissionOf())
+  const [testSentAt, setTestSentAt] = useState<number | null>(null)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [qrImage, setQrImage] = useState<string | null>(null)
@@ -227,6 +258,7 @@ export function SettingsPage(props: SettingsPageProps): JSX.Element {
   const aibotStatus = status?.channels.find((item) => item.id === 'wecom-aibot')
   const webhookStatus = status?.channels.find((item) => item.id === 'wecom-webhook')
   const systemStatus = status?.channels.find((item) => item.id === 'system')
+  const system = status?.system
   const qrUrl = wechatStatus?.qr?.url
 
   useEffect(() => {
@@ -448,9 +480,85 @@ export function SettingsPage(props: SettingsPageProps): JSX.Element {
     </section>
   )
 
+  const verifyRow = (label: string, value: string): JSX.Element => (
+    <div style={S.row}>
+      <span style={S.label}>{label}</span>
+      <span style={S.hint}>{value}</span>
+    </div>
+  )
+
+  const canNotify = permission === 'granted' && system?.enabled === true
+  const pathLabel = system === undefined
+    ? t('system.pathUnknown')
+    : system.enabled !== true
+      ? t('system.pathOff')
+      : system.pageOpen
+        ? t('system.pathRenderer')
+        : system.hostSupported
+          ? t('system.pathHost')
+          : t('system.pathNone')
+  const permissionLabel = permission === 'granted'
+    ? t('system.permissionGranted')
+    : permission === 'denied'
+      ? t('system.permissionDenied')
+      : permission === 'unsupported'
+        ? t('system.permissionUnsupported')
+        : t('system.permissionDefault')
+  const verifyLabel = system?.verify === null || system?.verify === undefined
+    ? t('system.neverVerified')
+    : new Date(system.verify.at).toLocaleString() + ' · ' + (system.verify.ok ? t('system.verifyOk') : t('system.verifyFailed'))
+
+  const askPermission = async (): Promise<void> => {
+    const next = await requestPermission()
+    setPermission(next)
+    say('system.permission', next === 'granted' ? t('system.permissionGranted') : t('system.guidanceBrowser'))
+  }
+
+  const sendTestNotification = async (): Promise<void> => {
+    if (permission !== 'granted') {
+      const next = await requestPermission()
+      setPermission(next)
+      if (next !== 'granted') {
+        say('system.test', t('system.guidanceBrowser'))
+        return
+      }
+    }
+    showNotification(t('system.testTitle'), t('system.testBody') + ' ' + new Date().toLocaleTimeString())
+    setTestSentAt(Date.now())
+    say('system.test', t('system.testSent'))
+  }
+
+  const confirmVerify = async (ok: boolean): Promise<void> => {
+    const app = typeof navigator !== 'undefined' && /electron/i.test(navigator.userAgent) ? 'desktop' : 'web'
+    const platform = typeof navigator !== 'undefined' ? navigator.platform : 'unknown'
+    const result = await rpcCall(channel, endpoints.systemVerify, { ok, app, platform })
+    if (!result.ok) {
+      say('system.verify', result.error?.message ?? t('loadFailed'))
+      return
+    }
+    setTestSentAt(null)
+    say('system.verify', ok ? t('system.verifyOk') : t('system.guidanceBrowser'))
+  }
+
   const systemSection = (
     <section style={S.section}>
       {header(t('system.title'), systemStatus?.state)}
+      <section style={S.section}>
+        {verifyRow(t('system.canNotify'), canNotify ? t('system.notifyReady') : t('system.notifyBlocked'))}
+        {verifyRow(t('system.permission'), permissionLabel)}
+        {verifyRow(t('system.lastVerify'), verifyLabel)}
+        {verifyRow(t('system.path'), pathLabel)}
+        <div style={S.actions}>
+          {action('system.permission', t('system.requestPermission'), () => { void askPermission() })}
+          {action('system.test', t('system.testNotification'), () => { void sendTestNotification() }, true)}
+        </div>
+        {testSentAt === null ? null : (
+          <div style={S.actions}>
+            {action('system.verify', t('system.sawIt'), () => { void confirmVerify(true) }, true)}
+            {action('system.didNotSee', t('system.didNotSee'), () => { void confirmVerify(false) })}
+          </div>
+        )}
+      </section>
       <Toggle label={t('system.enabled')} hint={t('system.enabledHint')} checked={draft.system.enabled} onChange={(value) => update({ ...draft, system: { ...draft.system, enabled: value } })} />
       <div style={S.label}>{t('system.events')}</div>
       <div style={S.hint}>{t('system.eventsHint')}</div>
@@ -462,9 +570,6 @@ export function SettingsPage(props: SettingsPageProps): JSX.Element {
           onChange={(value) => update({ ...draft, system: { ...draft.system, events: { ...draft.system.events, [key]: value } } })}
         />
       ))}
-      <div style={S.actions}>
-        {action('test.system', t('channel.test'), () => { void runTest('system') })}
-      </div>
       {systemStatus?.error === undefined ? null : <div style={S.hint}>{systemStatus.error}</div>}
     </section>
   )

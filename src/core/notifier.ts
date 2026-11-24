@@ -4,6 +4,7 @@ import type { ChannelRegistry } from './registry.js'
 import type { Router } from './router.js'
 import type { Clock, Logger } from './ports.js'
 import type { DeliveredResult, OutboundMessage, SendReport, SkipReason } from './types.js'
+import { chooseRoute } from './renderer-queue.js'
 
 /** Notification kinds the plugin emits. */
 export type NotifyEventType =
@@ -32,8 +33,21 @@ export interface NotifierPolicy {
   /** Channels event notifications go to; empty means the default channel. */
   channels(): readonly string[]
   text(): ChatText
-  /** OS notifications: an independent switch set, never part of the chat fan-out. */
-  system(): { readonly enabled: boolean; readonly events: Readonly<Record<NotifyEventType, boolean>> }
+  /** System notifications: an independent switch set, never part of the chat fan-out. */
+  system(): SystemRouting
+}
+
+/** Everything the notifier reads to route one system notification. */
+export interface SystemRouting {
+  readonly enabled: boolean
+  readonly events: Readonly<Record<NotifyEventType, boolean>>
+  readonly backend: 'auto' | 'renderer' | 'host'
+  /** `process.platform` of the host. */
+  readonly platform: string
+  /** Hand one event to the open page. */
+  enqueue(event: { type: NotifyEventType; title: string; body: string }): void
+  /** Milliseconds since the page last checked in. */
+  heartbeatAgeMs(): number
 }
 
 /** Wiring the notifier needs. */
@@ -43,6 +57,8 @@ export interface NotifierDeps {
   readonly clock: Clock
   readonly logger: Logger
   readonly policy: NotifierPolicy
+  /** Record a dropped system notification in the delivery ledger. */
+  readonly noteDrop?: (row: DeliveredResult) => void
 }
 
 /**
@@ -97,15 +113,33 @@ export class Notifier {
   }
 
   /**
-   * Raise the OS notification when this event is ticked there.
+   * Raise the system notification when this event is ticked there.
    *
    * Deliberately separate from the chat dispatch: the system switch set is its
    * own, the body carries no reply hint, and a failure is only logged — a broken
    * notifier must never break the chat push that already happened.
+   *
+   * The route is decided at emit time: an open page receives the event through
+   * the queue, and only where the OS has a usable identity does the host command
+   * run. A route with nowhere to go is recorded, never silently swallowed.
    */
   async #raiseSystemNotification(event: NotifyEvent, title: string): Promise<void> {
     const system = this.#deps.policy.system()
     if (!system.enabled || system.events[event.type] !== true) return
+    const route = chooseRoute({
+      backend: system.backend,
+      platform: system.platform,
+      heartbeatAgeMs: system.heartbeatAgeMs(),
+    })
+    if (route === 'renderer') {
+      system.enqueue({ type: event.type, title, body: event.body })
+      return
+    }
+    if (route === 'drop') {
+      this.#deps.logger.warn('[push] system notification dropped for %s: no page open and no host notifier on %s', event.type, system.platform)
+      this.#deps.noteDrop?.({ channel: 'system', target: null, ok: false, code: 'renderer-absent', message: 'no page open and no host notifier on this platform' })
+      return
+    }
     const report = await this.#deps.registry.send({ kind: 'notice', title, body: event.body }, { channel: 'system' })
     for (const skip of report.skipped) {
       this.#deps.logger.warn('[push] system notification skipped for %s: %s', event.type, skip.reason)

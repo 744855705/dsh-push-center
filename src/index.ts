@@ -11,6 +11,7 @@ import { Notifier, type NotifyEventType } from './core/notifier.js'
 import { chatText, type ChatLocale } from './core/chat-text.js'
 import { JsonDocument } from './core/store.js'
 import { DeliveryLog } from './core/delivery-log.js'
+import { RendererQueue } from './core/renderer-queue.js'
 import type { HttpClient, HttpRequest, HttpResponse, Logger } from './core/ports.js'
 import { WechatChannel } from './channels/wechat/index.js'
 import { WecomAibotChannel } from './channels/wecom-aibot/index.js'
@@ -79,6 +80,7 @@ export function mergeConfig(patch: PluginConfig, stored: Partial<PluginConfig> |
   const s = stored ?? {}
   const patchChannels = p.channels as Partial<PluginConfig['channels']> | undefined
   const storedChannels = s.channels as Partial<PluginConfig['channels']> | undefined
+  const systemVerify = s.system?.verify ?? p.system?.verify
   return {
     enabled: s.enabled ?? p.enabled ?? base.enabled,
     titlePrefix: s.titlePrefix ?? p.titlePrefix ?? base.titlePrefix,
@@ -90,6 +92,8 @@ export function mergeConfig(patch: PluginConfig, stored: Partial<PluginConfig> |
     system: {
       enabled: s.system?.enabled ?? p.system?.enabled ?? base.system.enabled,
       events: { ...base.system.events, ...p.system?.events, ...s.system?.events },
+      backend: s.system?.backend ?? p.system?.backend ?? base.system.backend,
+      ...(systemVerify === undefined ? {} : { verify: systemVerify }),
     },
     channels: {
       wechat: { ...base.channels.wechat, ...patchChannels?.wechat, ...storedChannels?.wechat },
@@ -130,6 +134,9 @@ export async function apply(rawCtx: unknown, patch: PluginConfig): Promise<void>
 
   const deliveries = new DeliveryLog({ path: join(dataDir, 'deliveries.json') })
   await deliveries.load()
+  // Only a raised notification or a live page touches this queue; a disabled
+  // profile never builds an event.
+  const rendererQueue = new RendererQueue()
   const http = createHttp()
   const registry = new ChannelRegistry({ defaultChannelId: () => config.push.defaultChannel })
   const bindings = new Bindings()
@@ -160,8 +167,16 @@ export async function apply(rawCtx: unknown, patch: PluginConfig): Promise<void>
       hint: () => config.messages.hint,
       channels: () => config.notify.channels,
       text: () => chatText(config.messages.locale as ChatLocale),
-      system: () => config.system,
+      system: () => ({
+        enabled: config.system.enabled,
+        events: config.system.events,
+        backend: config.system.backend,
+        platform: process.platform,
+        enqueue: (event) => { rendererQueue.enqueue(event) },
+        heartbeatAgeMs: () => rendererQueue.heartbeatAgeMs(),
+      }),
     },
+    noteDrop: (row) => { deliveries.record([row]) },
   })
 
   const runtime: ChannelRuntime = {
@@ -258,6 +273,14 @@ export async function apply(rawCtx: unknown, patch: PluginConfig): Promise<void>
       association: association?.status ?? { phase: 'idle' },
       tool: toolState,
       deliveries: deliveries.list(),
+      system: {
+        enabled: config.system.enabled,
+        backend: config.system.backend,
+        platform: process.platform,
+        pageOpen: rendererQueue.pageOpen,
+        hostSupported: process.platform !== 'darwin',
+        verify: config.system.verify ?? null,
+      },
       channels: registry.all().map((channel) => ({ id: channel.id, enabled: channel.enabled, configured: channel.configured, ...channel.status })),
     }),
     startWecomAibotQr: async () => {
@@ -268,6 +291,33 @@ export async function apply(rawCtx: unknown, patch: PluginConfig): Promise<void>
         })
       }
       return associationFlow().begin()
+    },
+    system: {
+      probe: () => ({
+        enabled: config.system.enabled,
+        backend: config.system.backend,
+        platform: process.platform,
+        hostSupported: process.platform !== 'darwin',
+        pageOpen: rendererQueue.pageOpen,
+        queued: rendererQueue.since(undefined).events.length,
+        verify: config.system.verify ?? null,
+      }),
+      poll: (since) => {
+        rendererQueue.touch()
+        const drained = rendererQueue.since(since)
+        return { events: drained.events, cursor: drained.cursor, pageOpen: true }
+      },
+      verify: async (input) => {
+        // Persist without rebuilding channels: a self-check is not a config change.
+        config = {
+          ...config,
+          system: { ...config.system, verify: { at: Date.now(), ok: input.ok, backend: 'renderer', platform: input.platform, app: input.app } },
+        }
+        revision += 1
+        await document.write(config)
+        return config.system.verify
+      },
+      subscribe: (listener) => rendererQueue.subscribe(listener),
     },
     testChannel: async (channelId) => {
       const channel = registry.get(channelId)

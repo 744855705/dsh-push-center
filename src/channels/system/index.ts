@@ -132,6 +132,8 @@ export class SystemChannel extends PushChannel {
     this.#config = {
       enabled: config.enabled ?? false,
       events: { ...config.events },
+      backend: config.backend ?? 'auto',
+      ...(config.verify === undefined ? {} : { verify: config.verify }),
     }
     this.#platform = platform
   }

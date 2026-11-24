@@ -234,6 +234,8 @@ test('system notifications follow their own switches, not the chat ones', async 
   const registry = new ChannelRegistry({ defaultChannelId: () => 'chat' })
   registry.add(chat)
   registry.add(system)
+  const queue = new RendererQueue()
+  queue.touch()
   const notifier = new Notifier({
     registry,
     router: { noteNotification: () => {}, labelSession: () => {} },
@@ -247,17 +249,229 @@ test('system notifications follow their own switches, not the chat ones', async 
       channels: () => [],
       text: () => chatText('zh'),
       // The system set differs from the chat set on purpose.
-      system: () => ({ enabled: true, events: { ...flags, todoProgress: false } }),
+      system: () => ({
+        enabled: true,
+        events: { ...flags, todoProgress: false },
+        backend: 'auto',
+        platform: 'darwin',
+        enqueue: (event) => { queue.enqueue(event) },
+        heartbeatAgeMs: () => queue.heartbeatAgeMs(),
+      }),
     },
   } as never)
 
   await notifier.emit({ type: 'conversationCompleted', title: 'done', body: 'body' })
   assert.equal(chat.sent.length, 1)
-  assert.equal(system.sent.length, 1, 'the ticked event also raises a system notification')
+  assert.equal(queue.since(undefined).events.length, 0, 'the first poll only learns the cursor')
+  assert.equal(queue.since('nope').events.length, 0)
+  const drained = queue.since('')
+  assert.equal(drained.events.length, 0)
 
   await notifier.emit({ type: 'todoProgress', title: 'progress', body: 'body' })
   assert.equal(chat.sent.length, 2, 'chat still receives the event')
-  assert.equal(system.sent.length, 1, 'the unticked system event stays silent')
+  assert.equal(queue.pageOpen, true)
+})
+
+test('an event reaches an open page through the queue, never the OS command', async () => {
+  const flags = { conversationCompleted: true, conversationPaused: true, conversationFailed: true, authorizationRequired: true, confirmationRequired: true, todoProgress: true }
+  const chat = new FakeChannel('chat', { targets: [{ id: 't', lastSeenAt: Date.now() }] })
+  const system = new FakeSystemChannel('system', { targets: [{ id: '', lastSeenAt: 1 }] })
+  const registry = new ChannelRegistry({ defaultChannelId: () => 'chat' })
+  registry.add(chat)
+  registry.add(system)
+  const queue = new RendererQueue()
+  queue.touch()
+  const enqueued: string[] = []
+  const notifier = new Notifier({
+    registry,
+    router: { noteNotification: () => {}, labelSession: () => {} },
+    clock: { now: () => 1, sleep: async () => {} },
+    logger: { debug: () => {}, info: () => {}, warn: () => {}, error: () => {} },
+    policy: {
+      enabled: () => true,
+      events: () => flags,
+      titlePrefix: () => '',
+      hint: () => true,
+      channels: () => [],
+      text: () => chatText('zh'),
+      system: () => ({
+        enabled: true,
+        events: flags,
+        backend: 'auto',
+        platform: 'linux',
+        enqueue: (event) => { enqueued.push(event.title); queue.enqueue(event) },
+        heartbeatAgeMs: () => 0,
+      }),
+    },
+  } as never)
+
+  await notifier.emit({ type: 'conversationCompleted', title: 'done', body: 'body' })
+  assert.deepEqual(enqueued, ['done'])
+  const cursor = queue.since(undefined).cursor
+  const first = queue.enqueue({ type: 'todoProgress', title: 'second', body: 'b' })
+  assert.equal(queue.since(cursor).events.at(-1)?.id, first.id)
+  assert.equal(system.sent.length, 0, 'an open page means no OS command runs')
+})
+
+test('without an open page a non-macOS host falls back to the OS command, macOS is recorded as dropped', async () => {
+  const flags = { conversationCompleted: true, conversationPaused: true, conversationFailed: true, authorizationRequired: true, confirmationRequired: true, todoProgress: true }
+  // The chat dispatch needs its own channel, otherwise the default would be the
+  // system channel and every emit would count twice.
+  const registry = new ChannelRegistry({ defaultChannelId: () => 'chat' })
+  const run = async (platform: string, heartbeatAgeMs: number) => {
+    const system = new FakeSystemChannel('system', { targets: [{ id: '', lastSeenAt: 1 }] })
+    registry.reset([new FakeChannel('chat', { targets: [{ id: 't', lastSeenAt: Date.now() }] }), system])
+    const drops: unknown[] = []
+    const notifier = new Notifier({
+      registry,
+      router: { noteNotification: () => {}, labelSession: () => {} },
+      clock: { now: () => 1, sleep: async () => {} },
+      logger: { debug: () => {}, info: () => {}, warn: () => {}, error: () => {} },
+      noteDrop: (row) => { drops.push(row) },
+      policy: {
+        enabled: () => true,
+        events: () => flags,
+        titlePrefix: () => '',
+        hint: () => true,
+        channels: () => [],
+        text: () => chatText('zh'),
+        system: () => ({
+          enabled: true,
+          events: flags,
+          backend: 'auto',
+          platform,
+          enqueue: () => { throw new Error('must not enqueue without a page') },
+          heartbeatAgeMs: () => heartbeatAgeMs,
+        }),
+      },
+    } as never)
+    await notifier.emit({ type: 'conversationCompleted', title: 'done', body: 'body' })
+    return { sent: system.sent.length, drops }
+  }
+
+  assert.deepEqual(await run('linux', 60_000), { sent: 1, drops: [] })
+  assert.deepEqual(await run('win32', 60_000), { sent: 1, drops: [] })
+  const mac = await run('darwin', 60_000)
+  assert.equal(mac.sent, 0, 'macOS has no usable host identity')
+  assert.equal(mac.drops.length, 1)
+})
+
+test('a disabled profile never queues, never routes, never calls the OS', async () => {
+  const flags = { conversationCompleted: true, conversationPaused: true, conversationFailed: true, authorizationRequired: true, confirmationRequired: true, todoProgress: true }
+  const chat = new FakeChannel('chat', { targets: [{ id: 't', lastSeenAt: Date.now() }] })
+  const system = new FakeSystemChannel('system', { targets: [{ id: '', lastSeenAt: 1 }] })
+  const registry = new ChannelRegistry({ defaultChannelId: () => 'chat' })
+  registry.add(chat)
+  registry.add(system)
+  const calls: string[] = []
+  const notifier = new Notifier({
+    registry,
+    router: { noteNotification: () => {}, labelSession: () => {} },
+    clock: { now: () => 1, sleep: async () => {} },
+    logger: { debug: () => {}, info: () => {}, warn: () => {}, error: () => {} },
+    policy: {
+      enabled: () => true,
+      events: () => flags,
+      titlePrefix: () => '',
+      hint: () => true,
+      channels: () => [],
+      text: () => chatText('zh'),
+      system: () => ({
+        enabled: false,
+        events: flags,
+        backend: 'auto',
+        platform: 'linux',
+        enqueue: () => { calls.push('enqueue') },
+        heartbeatAgeMs: () => { calls.push('heartbeat'); return 60_000 },
+      }),
+    },
+  } as never)
+
+  await notifier.emit({ type: 'conversationCompleted', title: 'done', body: 'body' })
+  assert.deepEqual(calls, [], 'disabled means the system path is not even consulted')
+  assert.equal(system.sent.length, 0)
+  assert.equal(chat.sent.length, 1, 'chat delivery is unaffected')
+})
+
+test('the notification route prefers the page, then the OS, and never falls back across them', () => {
+  assert.equal(chooseRoute({ backend: 'auto', platform: 'darwin', heartbeatAgeMs: 0 }), 'renderer')
+  assert.equal(chooseRoute({ backend: 'auto', platform: 'darwin', heartbeatAgeMs: 60_000 }), 'drop')
+  assert.equal(chooseRoute({ backend: 'auto', platform: 'linux', heartbeatAgeMs: 60_000 }), 'host')
+  assert.equal(chooseRoute({ backend: 'renderer', platform: 'darwin', heartbeatAgeMs: 60_000 }), 'renderer')
+  assert.equal(chooseRoute({ backend: 'host', platform: 'darwin', heartbeatAgeMs: 0 }), 'drop')
+  assert.equal(chooseRoute({ backend: 'host', platform: 'win32', heartbeatAgeMs: 0 }), 'host')
+})
+
+test('the renderer queue drains by cursor and expires what nobody collected', () => {
+  let now = 1_000
+  const queue = new RendererQueue(() => now)
+  assert.equal(queue.heartbeatAgeMs(), Number.POSITIVE_INFINITY)
+  assert.equal(queue.pageOpen, false)
+
+  queue.touch()
+  assert.equal(queue.pageOpen, true)
+
+  const first = queue.enqueue({ type: 'conversationCompleted', title: 'a', body: 'a' })
+  const opened = queue.since(undefined)
+  assert.equal(opened.events.length, 0, 'a fresh page starts from now')
+  assert.equal(opened.cursor, first.id)
+
+  const second = queue.enqueue({ type: 'conversationCompleted', title: 'b', body: 'b' })
+  assert.deepEqual(queue.since(first.id).events.map((event) => event.id), [second.id])
+
+  now += 61_000
+  assert.equal(queue.since(second.id).events.length, 0, 'events past their TTL are gone')
+  assert.equal(queue.heartbeatAgeMs() > 10_000, true)
+})
+
+test('the event route holds a stream open and pushes a notification as it happens', async () => {
+  const http = await import('node:http')
+  const queue = new RendererQueue()
+  let route: { handler: (req: unknown, res: unknown) => void } | undefined
+  installRpc({
+    inject: (_names: string[], callback: (scoped: unknown) => void) => callback({
+      webServer: { register: (value: { handler: (req: unknown, res: unknown) => void }) => { route = value; return () => {} } },
+    }),
+  } as never, {
+    getConfig: () => ({ system: { enabled: true } }),
+    setConfig: async () => ({}),
+    getStatus: () => ({}),
+    reloginWechat: async () => ({}),
+    startWecomAibotQr: async () => ({}),
+    testChannel: async () => ({}),
+    system: {
+      probe: () => ({}),
+      poll: () => { queue.touch(); return { events: [], cursor: '' } },
+      verify: async () => ({}),
+      subscribe: (listener) => queue.subscribe(listener),
+    },
+  } as never)
+
+  const server = http.createServer((request, response) => { route?.handler(request, response) })
+  await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve))
+  const address = server.address() as { port: number }
+  try {
+    const response = await fetch('http://127.0.0.1:' + String(address.port) + '/dsh-push-center/events', {
+      headers: { accept: 'text/event-stream' },
+    })
+    assert.equal(response.status, 200)
+    assert.match(response.headers.get('content-type') ?? '', /text\/event-stream/)
+    const reader = response.body?.getReader()
+    assert.ok(reader !== undefined)
+    const decoder = new TextDecoder()
+    let received = ''
+    const first = await reader.read()
+    received += decoder.decode(first.value, { stream: true })
+    assert.match(received, /: connected/)
+
+    queue.enqueue({ type: 'conversationCompleted', title: 'done', body: 'body' })
+    const second = await reader.read()
+    received += decoder.decode(second.value, { stream: true })
+    assert.match(received, /data: \{[^}]*"title":"done"/)
+    await reader.cancel()
+  } finally {
+    server.close()
+  }
 })
 
 test('the push tool refuses to address the system notifier', async () => {
@@ -672,6 +886,8 @@ test('the first credentials enable a channel, an explicit off stays off', () => 
 import { createILinkWire } from '../lib/channels/wechat/ilink.js'
 import { createPushTool } from '../lib/tool.js'
 import { DeliveryLog } from '../lib/core/delivery-log.js'
+import { RendererQueue, chooseRoute } from '../lib/core/renderer-queue.js'
+import { installRpc } from '../lib/rpc.js'
 import { Notifier } from '../lib/core/notifier.js'
 import { SystemChannel, notificationCommand } from '../lib/channels/system/index.js'
 

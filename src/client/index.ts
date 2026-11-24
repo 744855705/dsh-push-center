@@ -4,6 +4,7 @@ import { SettingsPage } from './SettingsPage.js'
 import zh from '../../locale/zh.json'
 import en from '../../locale/en.json'
 import { RPC_CHANNEL, RPC_ENDPOINTS } from './rpc-contract.js'
+import { startSystemNotifications } from './system-notify.js'
 
 const NS = 'push-center'
 
@@ -90,6 +91,10 @@ export function apply(ctx: ClientContext): void {
     locale: NS,
     inject: () => ({ rpcCall, channel: RPC_CHANNEL, endpoints: RPC_ENDPOINTS }),
   }, SettingsPage))
+
+  // The notification agent reads the stored config once and then stays dormant
+  // unless system notifications are enabled, so a disabled profile pays nothing.
+  ctx.effect(() => startSystemNotifications({ call: rpcCall }), 'push-center: system notifications')
 
   ctx.slots.inject('settings.section.icon', () => ctx.slots.register({
     name: 'settings.section.icon',

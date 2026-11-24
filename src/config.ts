@@ -40,11 +40,33 @@ export interface WecomWebhookConfig {
   readonly msgType: 'text' | 'markdown'
 }
 
-/** Operating-system notifications: same events, its own switches. */
+/** Result of the in-app self-check, written once the person confirms what they saw. */
+export interface SystemVerify {
+  readonly at: number
+  readonly ok: boolean
+  /** Which path the confirmation applies to. */
+  readonly backend: 'renderer' | 'host'
+  /** `process.platform` of the host, or the browser platform when confirmed in the page. */
+  readonly platform: string
+  readonly app: 'web' | 'desktop'
+}
+
+/** Which notification path a push prefers. */
+export type SystemBackend = 'auto' | 'renderer' | 'host'
+
+/** In-app (renderer) notifications: same events, its own switches. */
 export interface SystemConfig {
   readonly enabled: boolean
-  /** Which events also raise an OS notification; independent of the chat events. */
+  /** Which events also raise a system notification; independent of the chat events. */
   readonly events: EventSwitches
+  /**
+   * auto: the page when one is open, otherwise the OS command where it works.
+   * renderer: the page only (macOS has no usable host identity).
+   * host: the OS command only.
+   */
+  readonly backend: SystemBackend
+  /** Last self-check the person confirmed; absent until they run one. */
+  readonly verify?: SystemVerify
 }
 
 /** Complete plugin configuration. */
@@ -102,7 +124,9 @@ const schema = z.object({
     hint: z.boolean().default(true).description('Append a reply hint to notifications.'),
   }).default({ locale: 'zh', hint: true }),
   system: z.object({
-    enabled: z.boolean().default(false).description('Raise an operating-system notification for the selected events.'),
+    enabled: z.boolean().default(false).description('Raise a system notification for the selected events.'),
+    backend: z.union([z.const('auto'), z.const('renderer'), z.const('host')]).default('auto')
+      .description('auto: the page when open, else the OS command; renderer: the page only; host: the OS command only.'),
     events: z.object({
       conversationCompleted: z.boolean().default(true),
       conversationPaused: z.boolean().default(true),
@@ -120,6 +144,7 @@ const schema = z.object({
     }),
   }).default({
     enabled: false,
+    backend: 'auto',
     events: {
       conversationCompleted: true,
       conversationPaused: true,
@@ -179,6 +204,7 @@ export function defaultConfig(): Config {
     messages: { locale: 'zh', hint: true },
     system: {
       enabled: false,
+      backend: 'auto',
       events: {
         conversationCompleted: true,
         conversationPaused: true,
