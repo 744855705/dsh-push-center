@@ -34,16 +34,6 @@ export interface WecomWebhookConfig {
     readonly mentions: readonly string[];
     readonly msgType: 'text' | 'markdown';
 }
-/** Result of the in-app self-check, written once the person confirms what they saw. */
-export interface SystemVerify {
-    readonly at: number;
-    readonly ok: boolean;
-    /** Which path the confirmation applies to. */
-    readonly backend: 'renderer' | 'host';
-    /** `process.platform` of the host, or the browser platform when confirmed in the page. */
-    readonly platform: string;
-    readonly app: 'web' | 'desktop';
-}
 /** Which notification path a push prefers. */
 export type SystemBackend = 'auto' | 'renderer' | 'host';
 /** In-app (renderer) notifications: same events, its own switches. */
@@ -57,8 +47,8 @@ export interface SystemConfig {
      * host: the OS command only.
      */
     readonly backend: SystemBackend;
-    /** Last self-check the person confirmed; absent until they run one. */
-    readonly verify?: SystemVerify;
+    /** Play a short cue with the notification; the page synthesizes it, the host does not. */
+    readonly sound: boolean;
 }
 /** Complete plugin configuration. */
 export interface Config {

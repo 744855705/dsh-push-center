@@ -206,7 +206,6 @@ test('the delivered endpoint validates its payload and forwards the outcome', as
     system: {
       probe: () => ({}),
       poll: () => ({ events: [], cursor: '' }),
-      verify: async () => ({}),
       delivered: (input) => { seen.push(input); return { ok: true } },
       subscribe: () => () => {},
     },
@@ -556,7 +555,6 @@ test('the event route holds a stream open and pushes a notification as it happen
     system: {
       probe: () => ({}),
       poll: () => { queue.touch(); return { events: [], cursor: '' } },
-      verify: async () => ({}),
       subscribe: (listener) => queue.subscribe(listener),
     },
   } as never)
@@ -815,6 +813,13 @@ test('config merge keeps defaults a partial patch or stored file omits', () => {
   const stored = { channels: { 'wecom-aibot': { enabled: true, botId: 'b', secret: 's', defaultTargets: [], interactive: true } } } as never
   const fromStored = mergeConfig(patch, stored)
   assert.equal(fromStored.channels['wecom-aibot'].wsUrl, '')
+})
+
+test('the notification cue defaults on and a stored choice wins', () => {
+  const patch = { system: { enabled: true, events: {} } } as never
+  assert.equal(mergeConfig(patch, undefined).system.sound, true, 'a config without the key plays the cue')
+  assert.equal(mergeConfig(patch, { system: { sound: false } } as never).system.sound, false, 'the stored switch wins')
+  assert.equal(mergeConfig(patch, { system: { sound: true } } as never).system.sound, true)
 })
 
 test('an expired wechat session restarts the QR login', async () => {

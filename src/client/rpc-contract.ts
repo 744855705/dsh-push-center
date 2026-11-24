@@ -11,6 +11,5 @@ export const RPC_ENDPOINTS = Object.freeze({
   channelTest: 'channel.test',
   systemProbe: 'system.probe',
   systemPoll: 'system.poll',
-  systemVerify: 'system.verify',
   systemDelivered: 'system.delivered',
 })

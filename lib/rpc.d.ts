@@ -13,7 +13,6 @@ export declare const RPC_ENDPOINTS: Readonly<{
     channelTest: "channel.test";
     systemProbe: "system.probe";
     systemPoll: "system.poll";
-    systemVerify: "system.verify";
     systemDelivered: "system.delivered";
 }>;
 /** One event handed to the page. */
@@ -30,12 +29,6 @@ export interface SystemHandlers {
     probe(): unknown;
     /** Drain events after a cursor; also reports the page as live. */
     poll(since: string | undefined): unknown;
-    /** Persist the self-check the person confirmed. */
-    verify(input: {
-        ok: boolean;
-        app: 'web' | 'desktop';
-        platform: string;
-    }): Promise<unknown>;
     /** Record what the page did with one event (it owns the notification). */
     delivered(input: {
         id: string;

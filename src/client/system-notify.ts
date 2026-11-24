@@ -63,6 +63,54 @@ export async function requestPermission(): Promise<NotificationPermission | 'uns
   return Notification.requestPermission()
 }
 
+/** Whether the cue plays; the settings page owns this decision. */
+let cueEnabled = true
+
+/**
+ * Turn the notification cue on or off.
+ * @param on - whether a cue should play with each notification.
+ */
+export function setNotificationSound(on: boolean): void {
+  cueEnabled = on
+}
+
+/**
+ * Play a short two-tone cue from the page.
+ *
+ * Browser notifications carry no sound setting beyond `silent`, and Chromium on
+ * macOS delivers them without a sound at all, so the page synthesizes its own.
+ * Failure is silent: a missing AudioContext must never break the notification.
+ */
+export function playCue(): void {
+  try {
+    const Ctor = typeof AudioContext === 'undefined' ? undefined : AudioContext
+    if (Ctor === undefined) return
+    cue ??= new Ctor()
+    const audio = cue
+    if (audio.state === 'suspended') void audio.resume()
+    const start = audio.currentTime
+    for (const [index, frequency] of [880, 1245].entries()) {
+      const at = start + index * 0.13
+      const osc = audio.createOscillator()
+      const gain = audio.createGain()
+      osc.type = 'sine'
+      osc.frequency.value = frequency
+      gain.gain.setValueAtTime(0.0001, at)
+      gain.gain.exponentialRampToValueAtTime(0.18, at + 0.02)
+      gain.gain.exponentialRampToValueAtTime(0.0001, at + 0.11)
+      osc.connect(gain)
+      gain.connect(audio.destination)
+      osc.start(at)
+      osc.stop(at + 0.12)
+    }
+  } catch {
+    // A blocked or unsupported audio context must not break notifications.
+  }
+}
+
+/** One shared audio context, created on first use. */
+let cue: AudioContext | undefined
+
 /**
  * Show one notification; formatting is the host's job.
  * @returns whether a notification was actually raised, so the ledger can record it.
@@ -71,7 +119,8 @@ export function showNotification(title: string, body: string): boolean {
   if (typeof Notification === 'undefined') return false
   if (Notification.permission !== 'granted') return false
   // eslint-disable-next-line no-new -- the constructor both posts and owns the toast
-  new Notification(title, { body })
+  new Notification(title, { body, silent: false })
+  if (cueEnabled) playCue()
   return true
 }
 
@@ -221,7 +270,9 @@ export function startSystemNotifications(options: SystemNotifyOptions): () => vo
       setMode('off', config.error?.message ?? 'config unavailable')
       return
     }
-    const enabled = (config.value as { system?: { enabled?: boolean } } | undefined)?.system?.enabled === true
+    const settings = (config.value as { system?: { enabled?: boolean; sound?: boolean } } | undefined)?.system
+    setNotificationSound(settings?.sound !== false)
+    const enabled = settings?.enabled === true
     if (!enabled) {
       setMode('off')
       return

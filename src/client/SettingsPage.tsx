@@ -4,7 +4,7 @@ import QRCode from 'qrcode'
 import type { Config } from '../config.js'
 import type { RpcCall, RpcResult } from './index.js'
 import { Mark, type MarkName } from './icons.js'
-import { permissionOf, requestPermission, showNotification } from './system-notify.js'
+import { permissionOf, requestPermission, setNotificationSound, showNotification } from './system-notify.js'
 
 /** One channel row from the status endpoint. */
 interface ChannelState {
@@ -26,15 +26,6 @@ interface DeliveryRow {
   readonly message?: string
 }
 
-/** One self-check the person confirmed. */
-interface SystemVerifyRow {
-  readonly at: number
-  readonly ok: boolean
-  readonly backend: string
-  readonly platform: string
-  readonly app: string
-}
-
 /** System-notification state the host reports. */
 interface SystemStatus {
   readonly enabled: boolean
@@ -42,7 +33,6 @@ interface SystemStatus {
   readonly platform: string
   readonly pageOpen: boolean
   readonly hostSupported: boolean
-  readonly verify: SystemVerifyRow | null
 }
 
 /** Status endpoint payload. */
@@ -68,7 +58,6 @@ export interface SettingsPageProps {
     readonly wechatRelogin: string
     readonly wecomAibotQrStart: string
     readonly channelTest: string
-    readonly systemVerify: string
   }
 }
 
@@ -191,7 +180,6 @@ export function SettingsPage(props: SettingsPageProps): JSX.Element {
   const [status, setStatus] = useState<StatusPayload | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [permission, setPermission] = useState<NotificationPermission | 'unsupported'>(() => permissionOf())
-  const [testSentAt, setTestSentAt] = useState<number | null>(null)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [qrImage, setQrImage] = useState<string | null>(null)
@@ -315,6 +303,7 @@ export function SettingsPage(props: SettingsPageProps): JSX.Element {
     if (!result.ok) { say('save', result.error?.message ?? t('saveFailed')); return }
     setConfig(result.value as Config)
     setDraft(result.value as Config)
+    setNotificationSound((result.value as Config).system.sound)
     setSaved(true)
     say('save', t('saved'))
     setTimeout(() => { setSaved(false) }, 2000)
@@ -487,16 +476,6 @@ export function SettingsPage(props: SettingsPageProps): JSX.Element {
     </div>
   )
 
-  const canNotify = permission === 'granted' && system?.enabled === true
-  const pathLabel = system === undefined
-    ? t('system.pathUnknown')
-    : system.enabled !== true
-      ? t('system.pathOff')
-      : system.pageOpen
-        ? t('system.pathRenderer')
-        : system.hostSupported
-          ? t('system.pathHost')
-          : t('system.pathNone')
   const permissionLabel = permission === 'granted'
     ? t('system.permissionGranted')
     : permission === 'denied'
@@ -504,9 +483,6 @@ export function SettingsPage(props: SettingsPageProps): JSX.Element {
       : permission === 'unsupported'
         ? t('system.permissionUnsupported')
         : t('system.permissionDefault')
-  const verifyLabel = system?.verify === null || system?.verify === undefined
-    ? t('system.neverVerified')
-    : new Date(system.verify.at).toLocaleString() + ' · ' + (system.verify.ok ? t('system.verifyOk') : t('system.verifyFailed'))
 
   const askPermission = async (): Promise<void> => {
     const next = await requestPermission()
@@ -523,43 +499,22 @@ export function SettingsPage(props: SettingsPageProps): JSX.Element {
         return
       }
     }
-    showNotification(t('system.testTitle'), t('system.testBody') + ' ' + new Date().toLocaleTimeString())
-    setTestSentAt(Date.now())
-    say('system.test', t('system.testSent'))
-  }
-
-  const confirmVerify = async (ok: boolean): Promise<void> => {
-    const app = typeof navigator !== 'undefined' && /electron/i.test(navigator.userAgent) ? 'desktop' : 'web'
-    const platform = typeof navigator !== 'undefined' ? navigator.platform : 'unknown'
-    const result = await rpcCall(channel, endpoints.systemVerify, { ok, app, platform })
-    if (!result.ok) {
-      say('system.verify', result.error?.message ?? t('loadFailed'))
-      return
-    }
-    setTestSentAt(null)
-    say('system.verify', ok ? t('system.verifyOk') : t('system.guidanceBrowser'))
+    const shown = showNotification(t('system.testTitle'), t('system.testBody') + ' ' + new Date().toLocaleTimeString())
+    say('system.test', shown ? t('system.testSent') : t('system.guidanceBrowser'))
   }
 
   const systemSection = (
     <section style={S.section}>
       {header(t('system.title'), systemStatus?.state)}
       <section style={S.section}>
-        {verifyRow(t('system.canNotify'), canNotify ? t('system.notifyReady') : t('system.notifyBlocked'))}
         {verifyRow(t('system.permission'), permissionLabel)}
-        {verifyRow(t('system.lastVerify'), verifyLabel)}
-        {verifyRow(t('system.path'), pathLabel)}
         <div style={S.actions}>
           {action('system.permission', t('system.requestPermission'), () => { void askPermission() })}
           {action('system.test', t('system.testNotification'), () => { void sendTestNotification() }, true)}
         </div>
-        {testSentAt === null ? null : (
-          <div style={S.actions}>
-            {action('system.verify', t('system.sawIt'), () => { void confirmVerify(true) }, true)}
-            {action('system.didNotSee', t('system.didNotSee'), () => { void confirmVerify(false) })}
-          </div>
-        )}
       </section>
       <Toggle label={t('system.enabled')} hint={t('system.enabledHint')} checked={draft.system.enabled} onChange={(value) => update({ ...draft, system: { ...draft.system, enabled: value } })} />
+      <Toggle label={t('system.sound')} hint={t('system.soundHint')} checked={draft.system.sound} onChange={(value) => { setNotificationSound(value); update({ ...draft, system: { ...draft.system, sound: value } }) }} />
       <div style={S.label}>{t('system.events')}</div>
       <div style={S.hint}>{t('system.eventsHint')}</div>
       {EVENT_KEYS.map((key) => (

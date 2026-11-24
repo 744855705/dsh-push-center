@@ -2468,7 +2468,6 @@ const RPC_ENDPOINTS = Object.freeze({
 	channelTest: "channel.test",
 	systemProbe: "system.probe",
 	systemPoll: "system.poll",
-	systemVerify: "system.verify",
 	systemDelivered: "system.delivered"
 });
 // src/core/renderer-queue.ts
@@ -2526,6 +2525,48 @@ async function requestPermission() {
 	if (Notification.permission === "granted") return "granted";
 	return Notification.requestPermission();
 }
+/** Whether the cue plays; the settings page owns this decision. */
+let cueEnabled = true;
+/**
+* Turn the notification cue on or off.
+* @param on - whether a cue should play with each notification.
+*/
+function setNotificationSound(on) {
+	cueEnabled = on;
+}
+/**
+* Play a short two-tone cue from the page.
+*
+* Browser notifications carry no sound setting beyond `silent`, and Chromium on
+* macOS delivers them without a sound at all, so the page synthesizes its own.
+* Failure is silent: a missing AudioContext must never break the notification.
+*/
+function playCue() {
+	try {
+		const Ctor = typeof AudioContext === "undefined" ? void 0 : AudioContext;
+		if (Ctor === void 0) return;
+		cue ??= new Ctor();
+		const audio = cue;
+		if (audio.state === "suspended") audio.resume();
+		const start = audio.currentTime;
+		for (const [index, frequency] of [880, 1245].entries()) {
+			const at = start + index * .13;
+			const osc = audio.createOscillator();
+			const gain = audio.createGain();
+			osc.type = "sine";
+			osc.frequency.value = frequency;
+			gain.gain.setValueAtTime(1e-4, at);
+			gain.gain.exponentialRampToValueAtTime(.18, at + .02);
+			gain.gain.exponentialRampToValueAtTime(1e-4, at + .11);
+			osc.connect(gain);
+			gain.connect(audio.destination);
+			osc.start(at);
+			osc.stop(at + .12);
+		}
+	} catch {}
+}
+/** One shared audio context, created on first use. */
+let cue;
 /**
 * Show one notification; formatting is the host's job.
 * @returns whether a notification was actually raised, so the ledger can record it.
@@ -2533,7 +2574,11 @@ async function requestPermission() {
 function showNotification(title, body) {
 	if (typeof Notification === "undefined") return false;
 	if (Notification.permission !== "granted") return false;
-	new Notification(title, { body });
+	new Notification(title, {
+		body,
+		silent: false
+	});
+	if (cueEnabled) playCue();
 	return true;
 }
 function readCursor() {
@@ -2671,7 +2716,9 @@ function startSystemNotifications(options) {
 			setMode("off", config.error?.message ?? "config unavailable");
 			return;
 		}
-		if (!(config.value?.system?.enabled === true)) {
+		const settings = config.value?.system;
+		setNotificationSound(settings?.sound !== false);
+		if (!(settings?.enabled === true)) {
 			setMode("off");
 			return;
 		}
@@ -3042,7 +3089,6 @@ function SettingsPage(props) {
 	const [status, setStatus] = (0, react.useState)(null);
 	const [error, setError] = (0, react.useState)(null);
 	const [permission, setPermission] = (0, react.useState)(() => permissionOf());
-	const [testSentAt, setTestSentAt] = (0, react.useState)(null);
 	const [saving, setSaving] = (0, react.useState)(false);
 	const [saved, setSaved] = (0, react.useState)(false);
 	const [qrImage, setQrImage] = (0, react.useState)(null);
@@ -3117,7 +3163,7 @@ function SettingsPage(props) {
 	const aibotStatus = status?.channels.find((item) => item.id === "wecom-aibot");
 	const webhookStatus = status?.channels.find((item) => item.id === "wecom-webhook");
 	const systemStatus = status?.channels.find((item) => item.id === "system");
-	const system = status?.system;
+	status?.system;
 	const qrUrl = wechatStatus?.qr?.url;
 	(0, react.useEffect)(() => {
 		if (qrUrl === void 0) {
@@ -3198,6 +3244,7 @@ function SettingsPage(props) {
 		}
 		setConfig(result.value);
 		setDraft(result.value);
+		setNotificationSound(result.value.system.sound);
 		setSaved(true);
 		say("save", t("saved"));
 		setTimeout(() => {
@@ -3618,10 +3665,7 @@ function SettingsPage(props) {
 			children: value
 		})]
 	});
-	const canNotify = permission === "granted" && system?.enabled === true;
-	const pathLabel = system === void 0 ? t("system.pathUnknown") : system.enabled !== true ? t("system.pathOff") : system.pageOpen ? t("system.pathRenderer") : system.hostSupported ? t("system.pathHost") : t("system.pathNone");
 	const permissionLabel = permission === "granted" ? t("system.permissionGranted") : permission === "denied" ? t("system.permissionDenied") : permission === "unsupported" ? t("system.permissionUnsupported") : t("system.permissionDefault");
-	const verifyLabel = system?.verify === null || system?.verify === void 0 ? t("system.neverVerified") : new Date(system.verify.at).toLocaleString() + " · " + (system.verify.ok ? t("system.verifyOk") : t("system.verifyFailed"));
 	const askPermission = async () => {
 		const next = await requestPermission();
 		setPermission(next);
@@ -3636,24 +3680,8 @@ function SettingsPage(props) {
 				return;
 			}
 		}
-		showNotification(t("system.testTitle"), t("system.testBody") + " " + (/* @__PURE__ */ new Date()).toLocaleTimeString());
-		setTestSentAt(Date.now());
-		say("system.test", t("system.testSent"));
-	};
-	const confirmVerify = async (ok) => {
-		const app = typeof navigator !== "undefined" && /electron/i.test(navigator.userAgent) ? "desktop" : "web";
-		const platform = typeof navigator !== "undefined" ? navigator.platform : "unknown";
-		const result = await rpcCall(channel, endpoints.systemVerify, {
-			ok,
-			app,
-			platform
-		});
-		if (!result.ok) {
-			say("system.verify", result.error?.message ?? t("loadFailed"));
-			return;
-		}
-		setTestSentAt(null);
-		say("system.verify", ok ? t("system.verifyOk") : t("system.guidanceBrowser"));
+		const shown = showNotification(t("system.testTitle"), t("system.testBody") + " " + (/* @__PURE__ */ new Date()).toLocaleTimeString());
+		say("system.test", shown ? t("system.testSent") : t("system.guidanceBrowser"));
 	};
 	const systemSection = /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("section", {
 		style: S.section,
@@ -3661,28 +3689,14 @@ function SettingsPage(props) {
 			header(t("system.title"), systemStatus?.state),
 			/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("section", {
 				style: S.section,
-				children: [
-					verifyRow(t("system.canNotify"), canNotify ? t("system.notifyReady") : t("system.notifyBlocked")),
-					verifyRow(t("system.permission"), permissionLabel),
-					verifyRow(t("system.lastVerify"), verifyLabel),
-					verifyRow(t("system.path"), pathLabel),
-					/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
-						style: S.actions,
-						children: [action("system.permission", t("system.requestPermission"), () => {
-							askPermission();
-						}), action("system.test", t("system.testNotification"), () => {
-							sendTestNotification();
-						}, true)]
-					}),
-					testSentAt === null ? null : /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
-						style: S.actions,
-						children: [action("system.verify", t("system.sawIt"), () => {
-							confirmVerify(true);
-						}, true), action("system.didNotSee", t("system.didNotSee"), () => {
-							confirmVerify(false);
-						})]
-					})
-				]
+				children: [verifyRow(t("system.permission"), permissionLabel), /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+					style: S.actions,
+					children: [action("system.permission", t("system.requestPermission"), () => {
+						askPermission();
+					}), action("system.test", t("system.testNotification"), () => {
+						sendTestNotification();
+					}, true)]
+				})]
 			}),
 			/* @__PURE__ */ (0, react_jsx_runtime.jsx)(Toggle, {
 				label: t("system.enabled"),
@@ -3695,6 +3709,21 @@ function SettingsPage(props) {
 						enabled: value
 					}
 				})
+			}),
+			/* @__PURE__ */ (0, react_jsx_runtime.jsx)(Toggle, {
+				label: t("system.sound"),
+				hint: t("system.soundHint"),
+				checked: draft.system.sound,
+				onChange: (value) => {
+					setNotificationSound(value);
+					update({
+						...draft,
+						system: {
+							...draft.system,
+							sound: value
+						}
+					});
+				}
 			}),
 			/* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", {
 				style: S.label,
@@ -3914,33 +3943,20 @@ var ui$1 = {
 		"title": "系统通知",
 		"enabled": "启用系统通知",
 		"enabledHint": "会话事件直接弹到操作系统通知中心（macOS / Linux / Windows），不经过微信或企微。",
+		"sound": "提示音",
+		"soundHint": "收到系统通知时播放一声短提示音（页面自己合成，不依赖系统通知音；页面关闭时不响）",
 		"events": "哪些事件弹系统通知",
 		"eventsHint": "与「全局设置」里的事件勾选互不影响：这里只决定哪些事件额外弹一条系统通知。",
-		"canNotify": "可以通知吗",
-		"notifyReady": "可以",
-		"notifyBlocked": "不可以",
 		"permission": "授权状态",
 		"permissionGranted": "已授权",
 		"permissionDefault": "未请求",
 		"permissionDenied": "已拒绝",
 		"permissionUnsupported": "此页面不支持通知",
-		"lastVerify": "上次验证",
-		"neverVerified": "还没验证过",
-		"verifyOk": "你确认看到了",
-		"verifyFailed": "你点了没看到",
-		"path": "当前会走",
-		"pathUnknown": "未知",
-		"pathOff": "系统通知未启用",
-		"pathRenderer": "应用内通知（页面开着）",
-		"pathHost": "系统命令（页面已关闭）",
-		"pathNone": "收不到（页面已关闭，本平台没有可用的系统命令）",
 		"requestPermission": "请求授权",
 		"testNotification": "发送测试",
-		"testSent": "已发出，看到了吗？",
+		"testSent": "已发送",
 		"testTitle": "🧪 DSH 系统通知测试",
 		"testBody": "这条来自 DSH 推送中心；能看到就说明通知已打通。",
-		"sawIt": "我看到了",
-		"didNotSee": "没看到",
 		"guidanceBrowser": "没收到就检查两处：浏览器地址栏左侧的站点设置里允许通知；系统设置里允许对应的浏览器（macOS：系统设置 → 通知 → 你的浏览器；Windows：设置 → 系统 → 通知）。"
 	}
 };
@@ -4086,33 +4102,20 @@ var ui = {
 		"title": "System notifications",
 		"enabled": "Enable system notifications",
 		"enabledHint": "Session events raise an OS notification (macOS / Linux / Windows) instead of going through WeChat or WeCom.",
+		"sound": "Play a cue",
+		"soundHint": "Play a short cue with each notification (synthesized by the page, not the OS; silent while this page is closed)",
 		"events": "Events that raise a system notification",
 		"eventsHint": "Independent of the event switches under General: this only decides which events also pop an OS notification.",
-		"canNotify": "Can notify",
-		"notifyReady": "Yes",
-		"notifyBlocked": "No",
 		"permission": "Permission",
 		"permissionGranted": "Granted",
 		"permissionDefault": "Not requested",
 		"permissionDenied": "Denied",
 		"permissionUnsupported": "This page has no Notification API",
-		"lastVerify": "Last check",
-		"neverVerified": "Never verified",
-		"verifyOk": "You confirmed you saw it",
-		"verifyFailed": "You reported not seeing it",
-		"path": "Current path",
-		"pathUnknown": "Unknown",
-		"pathOff": "System notifications are off",
-		"pathRenderer": "In-app notification (page is open)",
-		"pathHost": "OS command (page is closed)",
-		"pathNone": "Nothing (page closed and this platform has no usable OS notifier)",
 		"requestPermission": "Request permission",
 		"testNotification": "Send test",
-		"testSent": "Sent — did you see it?",
+		"testSent": "Sent",
 		"testTitle": "🧪 DSH notification test",
 		"testBody": "From the DSH push center; seeing this means notifications work.",
-		"sawIt": "I saw it",
-		"didNotSee": "Did not see it",
 		"guidanceBrowser": "If nothing appeared, check two places: allow notifications for this site in the browser's address-bar controls, and allow that browser in the OS (macOS: System Settings → Notifications → your browser; Windows: Settings → System → Notifications)."
 	}
 };

@@ -80,7 +80,6 @@ export function mergeConfig(patch: PluginConfig, stored: Partial<PluginConfig> |
   const s = stored ?? {}
   const patchChannels = p.channels as Partial<PluginConfig['channels']> | undefined
   const storedChannels = s.channels as Partial<PluginConfig['channels']> | undefined
-  const systemVerify = s.system?.verify ?? p.system?.verify
   return {
     enabled: s.enabled ?? p.enabled ?? base.enabled,
     titlePrefix: s.titlePrefix ?? p.titlePrefix ?? base.titlePrefix,
@@ -93,7 +92,7 @@ export function mergeConfig(patch: PluginConfig, stored: Partial<PluginConfig> |
       enabled: s.system?.enabled ?? p.system?.enabled ?? base.system.enabled,
       events: { ...base.system.events, ...p.system?.events, ...s.system?.events },
       backend: s.system?.backend ?? p.system?.backend ?? base.system.backend,
-      ...(systemVerify === undefined ? {} : { verify: systemVerify }),
+      sound: s.system?.sound ?? p.system?.sound ?? base.system.sound,
     },
     channels: {
       wechat: { ...base.channels.wechat, ...patchChannels?.wechat, ...storedChannels?.wechat },
@@ -279,7 +278,6 @@ export async function apply(rawCtx: unknown, patch: PluginConfig): Promise<void>
         platform: process.platform,
         pageOpen: rendererQueue.pageOpen,
         hostSupported: process.platform !== 'darwin',
-        verify: config.system.verify ?? null,
       },
       channels: registry.all().map((channel) => ({ id: channel.id, enabled: channel.enabled, configured: channel.configured, ...channel.status })),
     }),
@@ -300,22 +298,11 @@ export async function apply(rawCtx: unknown, patch: PluginConfig): Promise<void>
         hostSupported: process.platform !== 'darwin',
         pageOpen: rendererQueue.pageOpen,
         queued: rendererQueue.since(undefined).events.length,
-        verify: config.system.verify ?? null,
       }),
       poll: (since) => {
         rendererQueue.touch()
         const drained = rendererQueue.since(since)
         return { events: drained.events, cursor: drained.cursor, pageOpen: true }
-      },
-      verify: async (input) => {
-        // Persist without rebuilding channels: a self-check is not a config change.
-        config = {
-          ...config,
-          system: { ...config.system, verify: { at: Date.now(), ok: input.ok, backend: 'renderer', platform: input.platform, app: input.app } },
-        }
-        revision += 1
-        await document.write(config)
-        return config.system.verify
       },
       delivered: (input) => {
         deliveries.recordRenderer(input.shown, input.type)

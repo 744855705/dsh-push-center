@@ -14,7 +14,6 @@ export const RPC_ENDPOINTS = Object.freeze({
   channelTest: 'channel.test',
   systemProbe: 'system.probe',
   systemPoll: 'system.poll',
-  systemVerify: 'system.verify',
   systemDelivered: 'system.delivered',
 })
 
@@ -33,8 +32,6 @@ export interface SystemHandlers {
   probe(): unknown
   /** Drain events after a cursor; also reports the page as live. */
   poll(since: string | undefined): unknown
-  /** Persist the self-check the person confirmed. */
-  verify(input: { ok: boolean; app: 'web' | 'desktop'; platform: string }): Promise<unknown>
   /** Record what the page did with one event (it owns the notification). */
   delivered(input: { id: string; shown: boolean; type?: string }): unknown
   /** Follow events live; returns the unsubscribe function. */
@@ -165,18 +162,6 @@ async function serve(req: IncomingMessage, res: ServerResponse, handlers: RpcHan
     if (method === RPC_ENDPOINTS.systemPoll) {
       const since = isRecord(payload) && typeof payload.since === 'string' ? payload.since : undefined
       respond(res, rpcId, { ok: true, value: handlers.system.poll(since) })
-      return
-    }
-    if (method === RPC_ENDPOINTS.systemVerify) {
-      if (!isRecord(payload) || typeof payload.ok !== 'boolean' || typeof payload.platform !== 'string'
-        || (payload.app !== 'web' && payload.app !== 'desktop')) {
-        respond(res, rpcId, { ok: false, error: { message: 'system.verify expects { ok, app, platform }' } })
-        return
-      }
-      respond(res, rpcId, {
-        ok: true,
-        value: await handlers.system.verify({ ok: payload.ok, app: payload.app, platform: payload.platform }),
-      })
       return
     }
     if (method === RPC_ENDPOINTS.systemDelivered) {
